@@ -71,8 +71,11 @@ class SessionLogFile:
                 line = line.strip()
                 if not line:
                     continue
-                data = orjson.loads(line)
-                messages.append(Message(raw=data))
+                try:
+                    data = orjson.loads(line)
+                    messages.append(Message(raw=data))
+                except orjson.JSONDecodeError:
+                    continue
         return messages
 
     @property
