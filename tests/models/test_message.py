@@ -160,6 +160,82 @@ class TestEditLoc:
         msg = Message(raw={"type": "user"})
         assert msg.edit_loc is None
 
+    def test_partial_change_only_counts_changed_lines(self):
+        old = """@pytest.fixture
+def mock_setup_info():
+    def close_coro_and_return_mock(coro):
+        coro.close()
+        return AsyncMock()
+
+    setup = Mock()
+    setup.clock = Mock()
+    setup.clock.get_time = Mock(return_value=0)
+    setup.task_manager = Mock()
+    setup.task_manager.create_task = Mock(side_effect=close_coro_and_return_mock)
+    setup.task_manager.cancel_task = AsyncMock()
+    setup.observer = None
+    return setup"""
+        new = """@pytest.fixture
+def mock_setup_info():
+    def close_coro_and_return_mock(coro, name=None):
+        coro.close()
+        return AsyncMock()
+
+    setup = Mock()
+    setup.clock = Mock()
+    setup.clock.get_time = Mock(return_value=0)
+    setup.task_manager = Mock()
+    setup.task_manager.create_task = Mock(side_effect=close_coro_and_return_mock)
+    setup.task_manager.cancel_task = AsyncMock()
+    setup.observer = None
+    return setup"""
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Edit",
+                    "input": {"old_string": old, "new_string": new}
+                }]
+            }
+        })
+        assert msg.edit_loc == {"added": 1, "removed": 1}
+
+    def test_identical_strings(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Edit",
+                    "input": {"old_string": "same\ntext", "new_string": "same\ntext"}
+                }]
+            }
+        })
+        assert msg.edit_loc == {"added": 0, "removed": 0}
+
+    def test_pure_addition(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Edit",
+                    "input": {"old_string": "", "new_string": "new\nlines"}
+                }]
+            }
+        })
+        assert msg.edit_loc == {"added": 2, "removed": 0}
+
+    def test_pure_deletion(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Edit",
+                    "input": {"old_string": "old\nlines", "new_string": ""}
+                }]
+            }
+        })
+        assert msg.edit_loc == {"added": 0, "removed": 2}
+
 
 class TestWriteLoc:
     def test_single_line(self):

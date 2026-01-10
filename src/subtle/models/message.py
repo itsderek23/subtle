@@ -1,3 +1,4 @@
+import difflib
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -120,9 +121,21 @@ class Message:
                 inp = tool_use.get("input", {})
                 old_str = inp.get("old_string", "")
                 new_str = inp.get("new_string", "")
-                old_lines = old_str.count("\n") + (1 if old_str else 0)
-                new_lines = new_str.count("\n") + (1 if new_str else 0)
-                return {"added": new_lines, "removed": old_lines}
+
+                old_lines = old_str.splitlines(keepends=True)
+                new_lines = new_str.splitlines(keepends=True)
+
+                diff = difflib.unified_diff(old_lines, new_lines)
+
+                added = 0
+                removed = 0
+                for line in diff:
+                    if line.startswith("+") and not line.startswith("+++"):
+                        added += 1
+                    elif line.startswith("-") and not line.startswith("---"):
+                        removed += 1
+
+                return {"added": added, "removed": removed}
         return None
 
     @property
