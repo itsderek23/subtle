@@ -59,6 +59,9 @@ function sessionDetailApp(sessionId) {
         messages: [],
         loading: true,
         selectedIndex: null,
+        panelOpen: false,
+        panelLoading: false,
+        rawMessage: null,
 
         async init() {
             try {
@@ -71,8 +74,26 @@ function sessionDetailApp(sessionId) {
             }
         },
 
-        selectMessage(index) {
+        async selectMessage(index) {
             this.selectedIndex = index;
+            this.panelOpen = true;
+            this.panelLoading = true;
+            this.rawMessage = null;
+
+            try {
+                const response = await fetch(`/api/messages/${this.sessionId}/${index}`);
+                this.rawMessage = await response.json();
+            } catch (error) {
+                console.error('Failed to load message:', error);
+            } finally {
+                this.panelLoading = false;
+            }
+        },
+
+        closePanel() {
+            this.panelOpen = false;
+            this.selectedIndex = null;
+            this.rawMessage = null;
         },
 
         typeClass(type) {

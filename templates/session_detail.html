@@ -40,6 +40,7 @@
                 </template>
                 <template x-for="message in messages" :key="message.index">
                     <tr class="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        :class="{'bg-white/[0.04]': selectedIndex === message.index}"
                         @click="selectMessage(message.index)">
                         <td class="px-4 py-3">
                             <span :class="typeClass(message.type)" x-text="message.type"></span>
@@ -64,6 +65,43 @@
                 </template>
             </tbody>
         </table>
+    </div>
+
+    <!-- Side Panel -->
+    <div x-show="panelOpen"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/50 z-40"
+         @click="closePanel()">
+    </div>
+
+    <div x-show="panelOpen"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="translate-x-full"
+         class="fixed top-0 right-0 h-full w-1/2 max-w-2xl bg-[#0a0a0c] border-l border-white/10 z-50 flex flex-col"
+         @click.stop>
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+            <h3 class="text-white/70 text-sm">
+                Message <span class="text-white/40" x-text="selectedIndex"></span>
+            </h3>
+            <button @click="closePanel()" class="text-white/40 hover:text-white/70 text-xl">&times;</button>
+        </div>
+        <div class="flex-1 overflow-auto p-4">
+            <template x-if="panelLoading">
+                <div class="text-white/40 text-sm">Loading...</div>
+            </template>
+            <template x-if="!panelLoading && rawMessage">
+                <pre class="text-xs text-white/70 whitespace-pre-wrap break-words" x-text="JSON.stringify(rawMessage, null, 2)"></pre>
+            </template>
+        </div>
     </div>
 </div>
 {% endblock %}
