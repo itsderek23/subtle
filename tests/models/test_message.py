@@ -287,3 +287,132 @@ class TestGitDiffLoc:
     def test_none_for_no_stats(self):
         msg = Message(raw={"type": "user"})
         assert msg.git_diff_loc is None
+
+
+class TestBreakdownCategory:
+    def test_tool_use_bash(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "name": "Bash", "id": "123"}]
+            }
+        })
+        assert msg.breakdown_category == {"category": "Bash", "type": "tool"}
+
+    def test_tool_use_read(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "name": "Read", "id": "123"}]
+            }
+        })
+        assert msg.breakdown_category == {"category": "Read", "type": "tool"}
+
+    def test_excluded_tool_todowrite(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "name": "TodoWrite", "id": "123"}]
+            }
+        })
+        assert msg.breakdown_category is None
+
+    def test_excluded_tool_exitplanmode(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "name": "ExitPlanMode", "id": "123"}]
+            }
+        })
+        assert msg.breakdown_category is None
+
+    def test_excluded_tool_killshell(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "name": "KillShell", "id": "123"}]
+            }
+        })
+        assert msg.breakdown_category is None
+
+    def test_assistant_thinking(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "thinking", "thinking": "Let me think..."}]
+            }
+        })
+        assert msg.breakdown_category == {"category": "assistant:thinking", "type": "assistant"}
+
+    def test_assistant_text(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "text", "text": "Hello!"}]
+            }
+        })
+        assert msg.breakdown_category == {"category": "assistant:text", "type": "assistant"}
+
+    def test_assistant_text_with_tool_use_returns_tool(self):
+        msg = Message(raw={
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "Let me run this"},
+                    {"type": "tool_use", "name": "Bash", "id": "123"}
+                ]
+            }
+        })
+        assert msg.breakdown_category == {"category": "Bash", "type": "tool"}
+
+    def test_user_human_input_string(self):
+        msg = Message(raw={
+            "type": "user",
+            "message": {"content": "Hello, can you help me?"}
+        })
+        assert msg.breakdown_category == {"category": "user:human_input", "type": "user"}
+
+    def test_user_slash_command(self):
+        msg = Message(raw={
+            "type": "user",
+            "message": {"content": "<command-name>/commit</command-name>"}
+        })
+        assert msg.breakdown_category == {"category": "user:slash_command", "type": "user"}
+
+    def test_user_human_input_list(self):
+        msg = Message(raw={
+            "type": "user",
+            "message": {
+                "content": [{"type": "text", "text": "Hello there"}]
+            }
+        })
+        assert msg.breakdown_category == {"category": "user:human_input", "type": "user"}
+
+    def test_skill_prompt_excluded(self):
+        msg = Message(raw={
+            "type": "user",
+            "message": {
+                "content": [{
+                    "type": "text",
+                    "text": "\n---\ndescription: Create commit\nallowed-tools: Bash\n---"
+                }]
+            }
+        })
+        assert msg.breakdown_category is None
+
+    def test_tool_result_excluded(self):
+        msg = Message(raw={
+            "type": "user",
+            "message": {
+                "content": [{"type": "tool_result", "content": "Success"}]
+            }
+        })
+        assert msg.breakdown_category is None
+
+    def test_system_message_excluded(self):
+        msg = Message(raw={"type": "system", "subtype": "turn_duration"})
+        assert msg.breakdown_category is None
+
+    def test_file_history_snapshot_excluded(self):
+        msg = Message(raw={"type": "file-history-snapshot"})
+        assert msg.breakdown_category is None

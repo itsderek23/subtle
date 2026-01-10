@@ -39,6 +39,28 @@
         </div>
     </div>
 
+    <!-- Message Breakdown -->
+    <div x-data="messageBreakdownApp('{{ session_id }}')" class="mb-6">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4" x-show="!loading && breakdown.length > 0">
+            <div class="text-white/40 text-xs uppercase mb-3">Message Breakdown</div>
+            <div class="space-y-2">
+                <template x-for="item in breakdown" :key="item.category">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-mono text-xs text-white/70" x-text="item.category"></span>
+                            <span class="font-mono text-[10px] text-white/40" x-text="item.count"></span>
+                        </div>
+                        <div class="h-2 w-full overflow-hidden rounded-full bg-white/5">
+                            <div class="h-full rounded-full transition-all duration-500"
+                                 :style="`width: ${getPercentage(item.count)}%; background-color: ${getColor(item.type)}`">
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white/[0.02] rounded-lg border border-white/10 overflow-hidden">
         <table class="w-full text-sm">
             <thead>

@@ -2,6 +2,8 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
+EXCLUDED_TOOLS = {"TodoWrite", "ExitPlanMode", "KillShell"}
+
 COMMIT_PATTERN = re.compile(
     r"\[[\w\-/]+ ([a-f0-9]{7,})\] (.+?)(?:\n|$)"
 )
@@ -165,4 +167,84 @@ class Message:
                     insertions = int(match.group(2)) if match.group(2) else 0
                     deletions = int(match.group(3)) if match.group(3) else 0
                     return {"added": insertions, "removed": deletions}
+        return None
+
+    def _has_thinking(self) -> bool:
+        message = self.raw.get("message", {})
+        content = message.get("content", [])
+        if not isinstance(content, list):
+            return False
+        return any(
+            isinstance(item, dict) and item.get("type") == "thinking"
+            for item in content
+        )
+
+    def _has_text_only(self) -> bool:
+        message = self.raw.get("message", {})
+        content = message.get("content", [])
+        if not isinstance(content, list):
+            return False
+        has_text = any(
+            isinstance(item, dict) and item.get("type") == "text"
+            for item in content
+        )
+        has_tool_use = any(
+            isinstance(item, dict) and item.get("type") == "tool_use"
+            for item in content
+        )
+        return has_text and not has_tool_use
+
+    def _is_skill_prompt(self, text: str) -> bool:
+        return "allowed-tools:" in text and text.lstrip().startswith("---")
+
+    def _is_slash_command(self, text: str) -> bool:
+        return "<command-name>/" in text
+
+    @property
+    def breakdown_category(self) -> dict | None:
+        msg_type = self.type
+
+        if msg_type == "assistant":
+            tools = self.tools
+            non_excluded = [t for t in tools if t not in EXCLUDED_TOOLS]
+            if non_excluded:
+                return {"category": non_excluded[0], "type": "tool"}
+            if self._has_thinking():
+                return {"category": "assistant:thinking", "type": "assistant"}
+            if self._has_text_only():
+                return {"category": "assistant:text", "type": "assistant"}
+            return None
+
+        if msg_type == "user":
+            message = self.raw.get("message", {})
+            content = message.get("content", "")
+
+            if isinstance(content, str):
+                if self._is_slash_command(content):
+                    return {"category": "user:slash_command", "type": "user"}
+                return {"category": "user:human_input", "type": "user"}
+
+            if isinstance(content, list):
+                has_tool_result = any(
+                    isinstance(item, dict) and item.get("type") == "tool_result"
+                    for item in content
+                )
+                if has_tool_result:
+                    return None
+
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text = item.get("text", "")
+                        if self._is_skill_prompt(text):
+                            return None
+                        if self._is_slash_command(text):
+                            return {"category": "user:slash_command", "type": "user"}
+                has_text = any(
+                    isinstance(item, dict) and item.get("type") == "text"
+                    for item in content
+                )
+                if has_text:
+                    return {"category": "user:human_input", "type": "user"}
+                return None
+
         return None

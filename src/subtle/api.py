@@ -59,3 +59,11 @@ def get_message(session_id: str, index: int):
     if index < 0 or index >= len(messages):
         raise HTTPException(status_code=404, detail="Message not found")
     return messages[index].raw
+
+
+@router.get("/sessions/{session_id}/message_breakdown")
+def get_message_breakdown(session_id: str):
+    session = SessionLogFile.from_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session.message_breakdown()

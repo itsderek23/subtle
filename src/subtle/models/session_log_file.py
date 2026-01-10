@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -5,6 +6,8 @@ from pathlib import Path
 import orjson
 
 from .message import Message
+
+TYPE_ORDER = {"tool": 0, "assistant": 1, "user": 2}
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
@@ -161,3 +164,24 @@ class SessionLogFile:
         if not found:
             return None
         return {"added": added, "removed": removed}
+
+    def message_breakdown(self) -> dict:
+        counts: Counter[tuple[str, str]] = Counter()
+        for msg in self.messages():
+            cat = msg.breakdown_category
+            if cat:
+                key = (cat["category"], cat["type"])
+                counts[key] += 1
+
+        breakdown = []
+        for (category, msg_type), count in counts.items():
+            breakdown.append({
+                "category": category,
+                "count": count,
+                "type": msg_type,
+            })
+
+        breakdown.sort(key=lambda x: (TYPE_ORDER.get(x["type"], 99), -x["count"]))
+
+        total = sum(item["count"] for item in breakdown)
+        return {"breakdown": breakdown, "total": total}

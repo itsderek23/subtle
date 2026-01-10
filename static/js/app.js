@@ -61,6 +61,42 @@ function sessionsListApp() {
     };
 }
 
+function messageBreakdownApp(sessionId) {
+    return {
+        sessionId: sessionId,
+        breakdown: [],
+        total: 0,
+        loading: true,
+
+        async init() {
+            try {
+                const response = await fetch(`/api/sessions/${this.sessionId}/message_breakdown`);
+                const data = await response.json();
+                this.breakdown = data.breakdown;
+                this.total = data.total;
+            } catch (error) {
+                console.error('Failed to load message breakdown:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        getColor(type) {
+            const colors = {
+                'tool': '#f59e0b',
+                'assistant': '#06b6d4',
+                'user': '#10b981'
+            };
+            return colors[type] || '#6b7280';
+        },
+
+        getPercentage(count) {
+            if (this.total === 0) return 0;
+            return (count / this.total) * 100;
+        }
+    };
+}
+
 function sessionDetailApp(sessionId) {
     return {
         sessionId: sessionId,

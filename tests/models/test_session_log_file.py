@@ -272,3 +272,114 @@ class TestGitLoc:
             session = SessionLogFile.from_id("test")
 
         assert session.git_loc is None
+
+
+class TestMessageBreakdown:
+    def test_counts_tools(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Read"}]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+            result = session.message_breakdown()
+
+        assert result["total"] == 3
+        bash_entry = next(b for b in result["breakdown"] if b["category"] == "Bash")
+        assert bash_entry["count"] == 2
+        assert bash_entry["type"] == "tool"
+
+    def test_counts_assistant_types(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "assistant", "message": {"content": [{"type": "thinking", "thinking": "..."}]}},
+                {"type": "assistant", "message": {"content": [{"type": "thinking", "thinking": "..."}]}},
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": "Hello"}]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+            result = session.message_breakdown()
+
+        thinking = next(b for b in result["breakdown"] if b["category"] == "assistant:thinking")
+        assert thinking["count"] == 2
+        text = next(b for b in result["breakdown"] if b["category"] == "assistant:text")
+        assert text["count"] == 1
+
+    def test_counts_user_types(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "user", "message": {"content": "Hello"}},
+                {"type": "user", "message": {"content": "World"}},
+                {"type": "user", "message": {"content": "<command-name>/commit</command-name>"}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+            result = session.message_breakdown()
+
+        human = next(b for b in result["breakdown"] if b["category"] == "user:human_input")
+        assert human["count"] == 2
+        slash = next(b for b in result["breakdown"] if b["category"] == "user:slash_command")
+        assert slash["count"] == 1
+
+    def test_excludes_tools(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "TodoWrite"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "ExitPlanMode"}]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+            result = session.message_breakdown()
+
+        assert result["total"] == 1
+        categories = [b["category"] for b in result["breakdown"]]
+        assert "Bash" in categories
+        assert "TodoWrite" not in categories
+        assert "ExitPlanMode" not in categories
+
+    def test_sorts_by_type_then_count(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "user", "message": {"content": "Hello"}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Read"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi"}]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+            result = session.message_breakdown()
+
+        categories = [b["category"] for b in result["breakdown"]]
+        assert categories == ["Bash", "Read", "assistant:text", "user:human_input"]
+
+    def test_empty_session(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[{"type": "system"}],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+            result = session.message_breakdown()
+
+        assert result["total"] == 0
+        assert result["breakdown"] == []

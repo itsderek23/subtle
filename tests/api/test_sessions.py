@@ -109,3 +109,36 @@ class TestGetMessage:
 
         assert response.status_code == 200
         assert response.json() == raw_message
+
+
+class TestGetMessageBreakdown:
+    def test_returns_404_for_missing_session(self, client, session_factory):
+        with session_factory.patch_projects_dir():
+            response = client.get("/api/sessions/nonexistent/message_breakdown")
+
+        assert response.status_code == 404
+
+    def test_returns_breakdown(self, client, session_factory):
+        session_factory.create(
+            session_id="abc123",
+            messages=[
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": "Hello"}]}},
+                {"type": "user", "message": {"content": "Hi there"}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            response = client.get("/api/sessions/abc123/message_breakdown")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 4
+        assert len(data["breakdown"]) == 3
+
+        categories = {b["category"]: b for b in data["breakdown"]}
+        assert categories["Bash"]["count"] == 2
+        assert categories["Bash"]["type"] == "tool"
+        assert categories["assistant:text"]["count"] == 1
+        assert categories["user:human_input"]["count"] == 1
