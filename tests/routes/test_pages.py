@@ -4,3 +4,10 @@ class TestSessionsList:
             response = client.get("/")
 
         assert response.status_code == 200
+
+
+class TestSessionDetail:
+    def test_returns_200(self, client, session_factory):
+        response = client.get("/session/abc123")
+
+        assert response.status_code == 200

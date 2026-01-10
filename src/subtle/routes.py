@@ -10,3 +10,8 @@ router = APIRouter()
 @router.get("/", response_class=HTMLResponse)
 def sessions_list(request: Request):
     return templates.TemplateResponse(request, "sessions_list.html")
+
+
+@router.get("/session/{session_id}", response_class=HTMLResponse)
+def session_detail(request: Request, session_id: str):
+    return templates.TemplateResponse(request, "session_detail.html", {"session_id": session_id})

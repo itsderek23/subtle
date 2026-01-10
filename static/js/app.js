@@ -52,3 +52,54 @@ function sessionsListApp() {
         }
     };
 }
+
+function sessionDetailApp(sessionId) {
+    return {
+        sessionId: sessionId,
+        messages: [],
+        loading: true,
+        selectedIndex: null,
+
+        async init() {
+            try {
+                const response = await fetch(`/api/sessions/${this.sessionId}/messages`);
+                this.messages = await response.json();
+            } catch (error) {
+                console.error('Failed to load messages:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        selectMessage(index) {
+            this.selectedIndex = index;
+        },
+
+        typeClass(type) {
+            const classes = {
+                'assistant': 'text-amber-400',
+                'user': 'text-blue-400',
+                'tool_result': 'text-green-400',
+            };
+            return classes[type] || 'text-white/50';
+        },
+
+        formatTime(isoString) {
+            if (!isoString) return '–';
+            const date = new Date(isoString);
+            return date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        },
+
+        formatModel(model) {
+            if (!model) return '–';
+            if (model.includes('opus')) return 'opus';
+            if (model.includes('sonnet')) return 'sonnet';
+            if (model.includes('haiku')) return 'haiku';
+            return model.slice(0, 10);
+        }
+    };
+}
