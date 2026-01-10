@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Sessions - Subtle{% endblock %}
+
+{% block content %}
+<div x-data="sessionsListApp()">
+    <div class="bg-white/[0.02] rounded-lg border border-white/10 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-white/10 text-white/50 text-left">
+                    <th class="px-4 py-3 font-medium">Project</th>
+                    <th class="px-4 py-3 font-medium">Session ID</th>
+                    <th class="px-4 py-3 font-medium">Start Time</th>
+                    <th class="px-4 py-3 font-medium">End Time</th>
+                    <th class="px-4 py-3 font-medium">Duration</th>
+                    <th class="px-4 py-3 font-medium text-right">Tokens</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="loading">
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-white/40">
+                            Loading sessions...
+                        </td>
+                    </tr>
+                </template>
+                <template x-if="!loading && sessions.length === 0">
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-white/40">
+                            No sessions found
+                        </td>
+                    </tr>
+                </template>
+                <template x-for="session in sessions" :key="session.session_id">
+                    <tr class="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        @click="goToSession(session.session_id)">
+                        <td class="px-4 py-3 text-white/70" x-text="session.project_name"></td>
+                        <td class="px-4 py-3 text-white/50" x-text="session.session_id.slice(0, 8) + '...'"></td>
+                        <td class="px-4 py-3 text-white/50" x-text="formatTime(session.start_time)"></td>
+                        <td class="px-4 py-3 text-white/50" x-text="formatTime(session.end_time)"></td>
+                        <td class="px-4 py-3 text-white/50" x-text="formatDuration(session.duration_seconds)"></td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="text-amber-400" x-text="formatTokens(session.input_tokens)"></span>
+                            <span class="text-white/30">/</span>
+                            <span class="text-white/50" x-text="formatTokens(session.output_tokens)"></span>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
