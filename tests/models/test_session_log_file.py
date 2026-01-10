@@ -160,3 +160,115 @@ class TestFromId:
             session = SessionLogFile.from_id("nonexistent")
 
         assert session is None
+
+
+class TestCommits:
+    def test_counts_commits(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "user", "message": {"content": [
+                    {"type": "tool_result", "content": "[main abc1234] feat: first\n 1 file changed", "is_error": False}
+                ]}},
+                {"type": "user", "message": {"content": [
+                    {"type": "tool_result", "content": "[main def5678] feat: second\n 2 files changed", "is_error": False}
+                ]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+
+        assert session.commit_count == 2
+        assert len(session.commits) == 2
+        assert session.commits[0]["hash"] == "abc1234"
+        assert session.commits[1]["hash"] == "def5678"
+
+    def test_empty_commits(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[{"type": "user"}],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+
+        assert session.commit_count == 0
+        assert session.commits == []
+
+
+class TestToolLoc:
+    def test_aggregates_edits(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "assistant", "message": {"content": [
+                    {"type": "tool_use", "name": "Edit", "input": {"old_string": "a", "new_string": "b\nc"}}
+                ]}},
+                {"type": "assistant", "message": {"content": [
+                    {"type": "tool_use", "name": "Edit", "input": {"old_string": "x\ny", "new_string": "z"}}
+                ]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+
+        assert session.tool_loc == {"added": 3, "removed": 3}
+
+    def test_includes_writes(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "assistant", "message": {"content": [
+                    {"type": "tool_use", "name": "Write", "input": {"content": "line1\nline2\nline3"}}
+                ]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+
+        assert session.tool_loc == {"added": 3, "removed": 0}
+
+    def test_empty(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[{"type": "user"}],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+
+        assert session.tool_loc == {"added": 0, "removed": 0}
+
+
+class TestGitLoc:
+    def test_aggregates_diff_stats(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[
+                {"type": "user", "message": {"content": [
+                    {"type": "tool_result", "content": "[main abc] feat\n 2 files changed, 10 insertions(+), 5 deletions(-)"}
+                ]}},
+                {"type": "user", "message": {"content": [
+                    {"type": "tool_result", "content": "[main def] feat\n 1 file changed, 20 insertions(+), 3 deletions(-)"}
+                ]}},
+            ],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+
+        assert session.git_loc == {"added": 30, "removed": 8}
+
+    def test_none_when_no_git_data(self, session_factory):
+        session_factory.create(
+            session_id="test",
+            messages=[{"type": "user"}],
+        )
+
+        with session_factory.patch_projects_dir():
+            session = SessionLogFile.from_id("test")
+
+        assert session.git_loc is None

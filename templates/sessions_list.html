@@ -11,22 +11,24 @@
                     <th class="px-4 py-3 font-medium">Project</th>
                     <th class="px-4 py-3 font-medium">Session ID</th>
                     <th class="px-4 py-3 font-medium">Start Time</th>
-                    <th class="px-4 py-3 font-medium">End Time</th>
                     <th class="px-4 py-3 font-medium">Duration</th>
+                    <th class="px-4 py-3 font-medium text-right">Commits</th>
+                    <th class="px-4 py-3 font-medium text-right">Tool LOC</th>
+                    <th class="px-4 py-3 font-medium text-right">Git LOC</th>
                     <th class="px-4 py-3 font-medium text-right">Tokens</th>
                 </tr>
             </thead>
             <tbody>
                 <template x-if="loading">
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-white/40">
+                        <td colspan="8" class="px-4 py-8 text-center text-white/40">
                             Loading sessions...
                         </td>
                     </tr>
                 </template>
                 <template x-if="!loading && sessions.length === 0">
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-white/40">
+                        <td colspan="8" class="px-4 py-8 text-center text-white/40">
                             No sessions found
                         </td>
                     </tr>
@@ -37,8 +39,10 @@
                         <td class="px-4 py-3 text-white/70" x-text="session.project_name"></td>
                         <td class="px-4 py-3 text-white/50" x-text="session.session_id.slice(0, 8) + '...'"></td>
                         <td class="px-4 py-3 text-white/50" x-text="formatTime(session.start_time)"></td>
-                        <td class="px-4 py-3 text-white/50" x-text="formatTime(session.end_time)"></td>
                         <td class="px-4 py-3 text-white/50" x-text="formatDuration(session.duration_seconds)"></td>
+                        <td class="px-4 py-3 text-right text-white/50" x-text="session.commit_count || '–'"></td>
+                        <td class="px-4 py-3 text-right" x-html="formatLoc(session.tool_loc)"></td>
+                        <td class="px-4 py-3 text-right" x-html="formatLoc(session.git_loc)"></td>
                         <td class="px-4 py-3 text-right">
                             <span class="text-amber-400" x-text="formatTokens(session.input_tokens)"></span>
                             <span class="text-white/30">/</span>

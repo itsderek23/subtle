@@ -119,3 +119,45 @@ class SessionLogFile:
             if tokens:
                 total += tokens
         return total
+
+    @property
+    def commits(self) -> list[dict]:
+        result = []
+        for msg in self.messages():
+            info = msg.commit_info
+            if info:
+                result.append(info)
+        return result
+
+    @property
+    def commit_count(self) -> int:
+        return len(self.commits)
+
+    @property
+    def tool_loc(self) -> dict:
+        added = 0
+        removed = 0
+        for msg in self.messages():
+            edit = msg.edit_loc
+            if edit:
+                added += edit["added"]
+                removed += edit["removed"]
+            write = msg.write_loc
+            if write:
+                added += write
+        return {"added": added, "removed": removed}
+
+    @property
+    def git_loc(self) -> dict | None:
+        added = 0
+        removed = 0
+        found = False
+        for msg in self.messages():
+            diff = msg.git_diff_loc
+            if diff:
+                found = True
+                added += diff["added"]
+                removed += diff["removed"]
+        if not found:
+            return None
+        return {"added": added, "removed": removed}

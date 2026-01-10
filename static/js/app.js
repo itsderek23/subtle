@@ -49,6 +49,14 @@ function sessionsListApp() {
                 return (count / 1000).toFixed(0) + 'K';
             }
             return count.toString();
+        },
+
+        formatLoc(loc) {
+            if (!loc) return '<span class="text-white/30">–</span>';
+            const added = loc.added || 0;
+            const removed = loc.removed || 0;
+            if (added === 0 && removed === 0) return '<span class="text-white/30">–</span>';
+            return `<span class="text-green-400">+${added}</span><span class="text-white/30">/</span><span class="text-red-400">-${removed}</span>`;
         }
     };
 }
@@ -62,16 +70,50 @@ function sessionDetailApp(sessionId) {
         panelOpen: false,
         panelLoading: false,
         rawMessage: null,
+        summary: {
+            commits: 0,
+            toolLoc: { added: 0, removed: 0 },
+            gitLoc: { added: 0, removed: 0, found: false }
+        },
 
         async init() {
             try {
                 const response = await fetch(`/api/sessions/${this.sessionId}/messages`);
                 this.messages = await response.json();
+                this.computeSummary();
             } catch (error) {
                 console.error('Failed to load messages:', error);
             } finally {
                 this.loading = false;
             }
+        },
+
+        computeSummary() {
+            let commits = 0;
+            let toolAdded = 0, toolRemoved = 0;
+            let gitAdded = 0, gitRemoved = 0, gitFound = false;
+
+            for (const msg of this.messages) {
+                if (msg.is_commit) commits++;
+                if (msg.edit_loc) {
+                    toolAdded += msg.edit_loc.added || 0;
+                    toolRemoved += msg.edit_loc.removed || 0;
+                }
+                if (msg.write_loc) {
+                    toolAdded += msg.write_loc || 0;
+                }
+                if (msg.git_diff_loc) {
+                    gitFound = true;
+                    gitAdded += msg.git_diff_loc.added || 0;
+                    gitRemoved += msg.git_diff_loc.removed || 0;
+                }
+            }
+
+            this.summary = {
+                commits,
+                toolLoc: { added: toolAdded, removed: toolRemoved },
+                gitLoc: { added: gitAdded, removed: gitRemoved, found: gitFound }
+            };
         },
 
         async selectMessage(index) {

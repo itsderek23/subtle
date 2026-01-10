@@ -18,6 +18,9 @@ def list_sessions():
             "duration_seconds": s.duration.total_seconds() if s.duration else None,
             "input_tokens": s.total_input_tokens,
             "output_tokens": s.total_output_tokens,
+            "commit_count": s.commit_count,
+            "tool_loc": s.tool_loc,
+            "git_loc": s.git_loc,
         }
         for s in sessions
     ]
@@ -38,6 +41,10 @@ def list_messages(session_id: str):
             "input_tokens": m.input_tokens,
             "output_tokens": m.output_tokens,
             "tools": m.tools,
+            "is_commit": m.is_commit,
+            "edit_loc": m.edit_loc,
+            "write_loc": m.write_loc,
+            "git_diff_loc": m.git_diff_loc,
         }
         for i, m in enumerate(session.messages())
     ]

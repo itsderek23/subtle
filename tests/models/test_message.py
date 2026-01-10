@@ -123,3 +123,167 @@ class TestPreview:
             }
         })
         assert msg.preview == "Running [Tool: Bash]"
+
+
+class TestEditLoc:
+    def test_single_line_edit(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Edit",
+                    "input": {
+                        "old_string": "hello",
+                        "new_string": "world"
+                    }
+                }]
+            }
+        })
+        assert msg.edit_loc == {"added": 1, "removed": 1}
+
+    def test_multiline_edit(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Edit",
+                    "input": {
+                        "old_string": "line1\nline2",
+                        "new_string": "new1\nnew2\nnew3"
+                    }
+                }]
+            }
+        })
+        assert msg.edit_loc == {"added": 3, "removed": 2}
+
+    def test_none_for_non_edit(self):
+        msg = Message(raw={"type": "user"})
+        assert msg.edit_loc is None
+
+
+class TestWriteLoc:
+    def test_single_line(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Write",
+                    "input": {"content": "hello world"}
+                }]
+            }
+        })
+        assert msg.write_loc == 1
+
+    def test_multiline(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "name": "Write",
+                    "input": {"content": "line1\nline2\nline3"}
+                }]
+            }
+        })
+        assert msg.write_loc == 3
+
+    def test_none_for_non_write(self):
+        msg = Message(raw={"type": "user"})
+        assert msg.write_loc is None
+
+
+class TestIsCommit:
+    def test_detects_commit(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": "[main caf1219] feat: add new feature\n 3 files changed, 42 insertions(+)",
+                    "is_error": False
+                }]
+            }
+        })
+        assert msg.is_commit is True
+
+    def test_false_for_error(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": "[main caf1219] feat: add new feature",
+                    "is_error": True
+                }]
+            }
+        })
+        assert msg.is_commit is False
+
+    def test_false_for_non_commit(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": "Files listed successfully"
+                }]
+            }
+        })
+        assert msg.is_commit is False
+
+
+class TestCommitInfo:
+    def test_extracts_info(self):
+        msg = Message(raw={
+            "timestamp": "2026-01-09T12:00:00.000Z",
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": "[main abc1234] feat: add login feature\n 2 files changed",
+                    "is_error": False
+                }]
+            }
+        })
+        info = msg.commit_info
+        assert info["hash"] == "abc1234"
+        assert info["message"] == "feat: add login feature"
+        assert info["timestamp"] is not None
+
+    def test_none_for_non_commit(self):
+        msg = Message(raw={"type": "user"})
+        assert msg.commit_info is None
+
+
+class TestGitDiffLoc:
+    def test_parses_insertions_and_deletions(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": "[main abc1234] feat\n 3 files changed, 42 insertions(+), 12 deletions(-)"
+                }]
+            }
+        })
+        assert msg.git_diff_loc == {"added": 42, "removed": 12}
+
+    def test_insertions_only(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": "[main abc1234] feat\n 1 file changed, 10 insertions(+)"
+                }]
+            }
+        })
+        assert msg.git_diff_loc == {"added": 10, "removed": 0}
+
+    def test_deletions_only(self):
+        msg = Message(raw={
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": "[main abc1234] feat\n 1 file changed, 5 deletions(-)"
+                }]
+            }
+        })
+        assert msg.git_diff_loc == {"added": 0, "removed": 5}
+
+    def test_none_for_no_stats(self):
+        msg = Message(raw={"type": "user"})
+        assert msg.git_diff_loc is None
