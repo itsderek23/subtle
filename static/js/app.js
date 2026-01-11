@@ -116,6 +116,8 @@ function sessionDetailApp(sessionId) {
         },
 
         async init() {
+            window.addEventListener('keydown', (e) => this.handleKeydown(e));
+
             try {
                 const [messagesRes, sessionRes] = await Promise.all([
                     fetch(`/api/sessions/${this.sessionId}/messages`),
@@ -182,6 +184,32 @@ function sessionDetailApp(sessionId) {
             this.panelOpen = false;
             this.selectedIndex = null;
             this.rawMessage = null;
+        },
+
+        handleKeydown(event) {
+            if (!this.panelOpen) return;
+
+            if (event.key === 'Escape') {
+                this.closePanel();
+                return;
+            }
+
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                const currentIdx = this.messages.findIndex(m => m.index === this.selectedIndex);
+                if (currentIdx === -1) return;
+
+                let newIdx;
+                if (event.key === 'ArrowUp') {
+                    newIdx = currentIdx > 0 ? currentIdx - 1 : currentIdx;
+                } else {
+                    newIdx = currentIdx < this.messages.length - 1 ? currentIdx + 1 : currentIdx;
+                }
+
+                if (newIdx !== currentIdx) {
+                    this.selectMessage(this.messages[newIdx].index);
+                }
+            }
         },
 
         typeClass(type) {
