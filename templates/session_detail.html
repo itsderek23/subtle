@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Session {{ session_id[:8] }}... - Subtle{% endblock %}
+{% block title %}Session {{ session_id }} - Subtle{% endblock %}
 
 {% block content %}
 <div x-data="sessionDetailApp('{{ session_id }}')">
     <div class="mb-6">
         <a href="/" class="text-white/40 hover:text-white/70 text-sm">&larr; Back to sessions</a>
         <h2 class="text-lg text-white/70 mt-2">
-            Session <span class="text-white/50">{{ session_id[:8] }}...</span>
+            Session <span class="text-white/50">{{ session_id }}</span>
         </h2>
     </div>
 
