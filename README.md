@@ -1,6 +1,8 @@
-# subtle
+# Subtle
 
-Claude Code session log explorer.
+Explore and analyze your Claude Code logs with ease.
+
+![screenshot](docs/screenshot.png)
 
 ## Setup
 
