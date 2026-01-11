@@ -11,7 +11,7 @@
         </h2>
     </div>
 
-    <div class="mb-6 grid grid-cols-6 gap-4" x-show="!loading">
+    <div class="mb-6 grid grid-cols-7 gap-4" x-show="!loading">
         <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
             <div class="text-white/40 text-xs uppercase mb-1">Session Duration</div>
             <div class="text-2xl text-white/70" x-text="formatDuration(summary.durationSeconds)"></div>
@@ -19,6 +19,10 @@
         <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
             <div class="text-white/40 text-xs uppercase mb-1">Execution Time</div>
             <div class="text-2xl text-cyan-400" x-text="formatDuration(summary.executionTimeSeconds)"></div>
+        </div>
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+            <div class="text-white/40 text-xs uppercase mb-1">Errors</div>
+            <div class="text-2xl" :class="summary.errorCount ? 'text-red-400' : 'text-white/30'" x-text="summary.errorCount || '–'"></div>
         </div>
         <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
             <div class="text-white/40 text-xs uppercase mb-1">Commits</div>
@@ -132,6 +136,15 @@
                             </template>
                             <template x-if="message.git_diff_loc">
                                 <span class="inline-block px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded" x-text="'+' + message.git_diff_loc.added + '/-' + message.git_diff_loc.removed"></span>
+                            </template>
+                            <template x-if="message.is_rejection">
+                                <span class="inline-block px-2 py-0.5 text-xs bg-red-500/20 text-red-300 rounded">rejection</span>
+                            </template>
+                            <template x-if="message.is_tool_error">
+                                <span class="inline-block px-2 py-0.5 text-xs bg-orange-500/20 text-orange-300 rounded">tool error</span>
+                            </template>
+                            <template x-if="message.is_command_failure">
+                                <span class="inline-block px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-300 rounded">cmd fail</span>
                             </template>
                         </td>
                     </tr>

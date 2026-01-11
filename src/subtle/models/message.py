@@ -182,6 +182,33 @@ class Message:
                     return {"added": insertions, "removed": deletions}
         return None
 
+    @property
+    def is_rejection(self) -> bool:
+        for tool_result in self._get_tool_results():
+            if tool_result.get("is_error"):
+                content = tool_result.get("content", "")
+                if isinstance(content, str) and content.startswith("The user doesn't want to proceed"):
+                    return True
+        return False
+
+    @property
+    def is_tool_error(self) -> bool:
+        for tool_result in self._get_tool_results():
+            if tool_result.get("is_error"):
+                content = tool_result.get("content", "")
+                if isinstance(content, str) and "<tool_use_error>" in content:
+                    return True
+        return False
+
+    @property
+    def is_command_failure(self) -> bool:
+        for tool_result in self._get_tool_results():
+            if tool_result.get("is_error"):
+                content = tool_result.get("content", "")
+                if isinstance(content, str) and content.startswith("Exit code"):
+                    return True
+        return False
+
     def _has_thinking(self) -> bool:
         message = self.raw.get("message", {})
         content = message.get("content", [])

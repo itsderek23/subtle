@@ -109,6 +109,7 @@ function sessionDetailApp(sessionId) {
         summary: {
             durationSeconds: null,
             executionTimeSeconds: null,
+            errorCount: 0,
             commits: 0,
             toolLoc: { added: 0, removed: 0 },
             gitLoc: { added: 0, removed: 0, found: false }
@@ -154,6 +155,7 @@ function sessionDetailApp(sessionId) {
             this.summary = {
                 durationSeconds: session.duration_seconds,
                 executionTimeSeconds: session.execution_time_seconds,
+                errorCount: session.error_count,
                 commits,
                 toolLoc: { added: toolAdded, removed: toolRemoved },
                 gitLoc: { added: gitAdded, removed: gitRemoved, found: gitFound }

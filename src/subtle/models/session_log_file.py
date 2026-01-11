@@ -173,6 +173,14 @@ class SessionLogFile:
             return None
         return {"added": added, "removed": removed}
 
+    @property
+    def error_count(self) -> int:
+        count = 0
+        for msg in self.messages():
+            if msg.is_tool_error or msg.is_command_failure:
+                count += 1
+        return count
+
     def message_breakdown(self) -> dict:
         counts: Counter[tuple[str, str]] = Counter()
         for msg in self.messages():

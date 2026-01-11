@@ -20,6 +20,7 @@ def list_sessions():
             "input_tokens": s.total_input_tokens,
             "output_tokens": s.total_output_tokens,
             "commit_count": s.commit_count,
+            "error_count": s.error_count,
             "tool_loc": s.tool_loc,
             "git_loc": s.git_loc,
         }
@@ -36,6 +37,7 @@ def get_session(session_id: str):
         "session_id": session.session_id,
         "duration_seconds": session.duration.total_seconds() if session.duration else None,
         "execution_time_seconds": session.execution_time.total_seconds(),
+        "error_count": session.error_count,
     }
 
 
@@ -58,6 +60,9 @@ def list_messages(session_id: str):
             "edit_loc": m.edit_loc,
             "write_loc": m.write_loc,
             "git_diff_loc": m.git_diff_loc,
+            "is_rejection": m.is_rejection,
+            "is_tool_error": m.is_tool_error,
+            "is_command_failure": m.is_command_failure,
         }
         for i, m in enumerate(session.messages())
     ]
