@@ -107,6 +107,8 @@ function sessionDetailApp(sessionId) {
         panelLoading: false,
         rawMessage: null,
         summary: {
+            durationSeconds: null,
+            executionTimeSeconds: null,
             commits: 0,
             toolLoc: { added: 0, removed: 0 },
             gitLoc: { added: 0, removed: 0, found: false }
@@ -114,9 +116,13 @@ function sessionDetailApp(sessionId) {
 
         async init() {
             try {
-                const response = await fetch(`/api/sessions/${this.sessionId}/messages`);
-                this.messages = await response.json();
-                this.computeSummary();
+                const [messagesRes, sessionRes] = await Promise.all([
+                    fetch(`/api/sessions/${this.sessionId}/messages`),
+                    fetch(`/api/sessions/${this.sessionId}`)
+                ]);
+                this.messages = await messagesRes.json();
+                const session = await sessionRes.json();
+                this.computeSummary(session);
             } catch (error) {
                 console.error('Failed to load messages:', error);
             } finally {
@@ -124,7 +130,7 @@ function sessionDetailApp(sessionId) {
             }
         },
 
-        computeSummary() {
+        computeSummary(session) {
             let commits = 0;
             let toolAdded = 0, toolRemoved = 0;
             let gitAdded = 0, gitRemoved = 0, gitFound = false;
@@ -146,6 +152,8 @@ function sessionDetailApp(sessionId) {
             }
 
             this.summary = {
+                durationSeconds: session.duration_seconds,
+                executionTimeSeconds: session.execution_time_seconds,
                 commits,
                 toolLoc: { added: toolAdded, removed: toolRemoved },
                 gitLoc: { added: gitAdded, removed: gitRemoved, found: gitFound }
@@ -199,6 +207,16 @@ function sessionDetailApp(sessionId) {
             if (model.includes('sonnet')) return 'sonnet';
             if (model.includes('haiku')) return 'haiku';
             return model.slice(0, 10);
+        },
+
+        formatDuration(seconds) {
+            if (!seconds) return '–';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            }
+            return `${minutes}m`;
         }
     };
 }

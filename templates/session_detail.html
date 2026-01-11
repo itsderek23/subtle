@@ -11,7 +11,15 @@
         </h2>
     </div>
 
-    <div class="mb-6 grid grid-cols-4 gap-4" x-show="!loading">
+    <div class="mb-6 grid grid-cols-6 gap-4" x-show="!loading">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+            <div class="text-white/40 text-xs uppercase mb-1">Session Duration</div>
+            <div class="text-2xl text-white/70" x-text="formatDuration(summary.durationSeconds)"></div>
+        </div>
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+            <div class="text-white/40 text-xs uppercase mb-1">Execution Time</div>
+            <div class="text-2xl text-cyan-400" x-text="formatDuration(summary.executionTimeSeconds)"></div>
+        </div>
         <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
             <div class="text-white/40 text-xs uppercase mb-1">Commits</div>
             <div class="text-2xl text-purple-400" x-text="summary.commits"></div>

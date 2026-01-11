@@ -106,6 +106,14 @@ class SessionLogFile:
         return None
 
     @property
+    def execution_time(self) -> timedelta:
+        total_ms = 0
+        for msg in self.messages():
+            if msg.type == "system" and msg.raw.get("subtype") == "turn_duration":
+                total_ms += msg.raw.get("durationMs", 0)
+        return timedelta(milliseconds=total_ms)
+
+    @property
     def total_input_tokens(self) -> int:
         total = 0
         for msg in self.messages():

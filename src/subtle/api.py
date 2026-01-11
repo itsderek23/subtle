@@ -16,6 +16,7 @@ def list_sessions():
             "start_time": s.start_time.isoformat() if s.start_time else None,
             "end_time": s.end_time.isoformat() if s.end_time else None,
             "duration_seconds": s.duration.total_seconds() if s.duration else None,
+            "execution_time_seconds": s.execution_time.total_seconds(),
             "input_tokens": s.total_input_tokens,
             "output_tokens": s.total_output_tokens,
             "commit_count": s.commit_count,
@@ -24,6 +25,18 @@ def list_sessions():
         }
         for s in sessions
     ]
+
+
+@router.get("/sessions/{session_id}")
+def get_session(session_id: str):
+    session = SessionLogFile.from_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session_id": session.session_id,
+        "duration_seconds": session.duration.total_seconds() if session.duration else None,
+        "execution_time_seconds": session.execution_time.total_seconds(),
+    }
 
 
 @router.get("/sessions/{session_id}/messages")
