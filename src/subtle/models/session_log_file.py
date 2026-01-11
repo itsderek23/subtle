@@ -83,19 +83,13 @@ class SessionLogFile:
 
     @property
     def start_time(self) -> datetime | None:
-        messages = self.messages()
-        for msg in messages:
-            if msg.timestamp:
-                return msg.timestamp
-        return None
+        timestamps = [msg.timestamp for msg in self.messages() if msg.timestamp]
+        return min(timestamps) if timestamps else None
 
     @property
     def end_time(self) -> datetime | None:
-        messages = self.messages()
-        for msg in reversed(messages):
-            if msg.timestamp:
-                return msg.timestamp
-        return None
+        timestamps = [msg.timestamp for msg in self.messages() if msg.timestamp]
+        return max(timestamps) if timestamps else None
 
     @property
     def duration(self) -> timedelta | None:
