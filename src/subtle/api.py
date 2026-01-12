@@ -1,4 +1,6 @@
+import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import orjson
@@ -53,9 +55,14 @@ def _search_file(path: Path, query: str) -> str | None:
 router = APIRouter(prefix="/api")
 
 
+def filter_sessions_by_days(sessions: list[SessionLogFile], days: int) -> list[SessionLogFile]:
+    cutoff = datetime.now() - timedelta(days=days - 1)
+    return [s for s in sessions if datetime.fromtimestamp(os.path.getmtime(s.path)) >= cutoff]
+
+
 @router.get("/sessions")
-def list_sessions():
-    sessions = SessionLogFile.all()[:50]
+def list_sessions(days: int = 7):
+    sessions = filter_sessions_by_days(SessionLogFile.all(), days)
     result = []
     for s in sessions:
         breakdown = s.execution_breakdown
@@ -78,8 +85,8 @@ def list_sessions():
 
 
 @router.get("/sessions/daily-usage")
-def get_daily_usage():
-    sessions = SessionLogFile.all()[:50]
+def get_daily_usage(days: int = 7):
+    sessions = filter_sessions_by_days(SessionLogFile.all(), days)
     daily_totals: dict[str, int] = {}
 
     for s in sessions:
@@ -94,8 +101,8 @@ def get_daily_usage():
 
 
 @router.get("/sessions/search")
-def search_sessions(q: str):
-    sessions = SessionLogFile.all()[:50]
+def search_sessions(q: str, days: int = 7):
+    sessions = filter_sessions_by_days(SessionLogFile.all(), days)
     paths = [s.path for s in sessions]
 
     with ThreadPoolExecutor(max_workers=8) as executor:
