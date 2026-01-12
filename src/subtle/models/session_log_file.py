@@ -80,23 +80,30 @@ def _process_message_content(
     return tool_durations
 
 
+def _is_agent_response(prev_type: str | None, current_type: str) -> bool:
+    return prev_type in ("user", "assistant") and current_type == "assistant"
+
+
+def _calculate_gap_ms(prev_ts: datetime, current_ts: datetime) -> float:
+    return (current_ts - prev_ts).total_seconds() * 1000
+
+
+def _iter_timed_messages(messages: list):
+    for msg in messages:
+        if msg.timestamp and msg.type != "system":
+            yield msg
+
+
 def _calculate_agent_time(messages: list) -> float:
     agent_ms = 0.0
     prev_ts = None
     prev_type = None
 
-    for msg in messages:
-        ts = msg.timestamp
-        if not ts or msg.type == "system":
-            continue
+    for msg in _iter_timed_messages(messages):
+        if prev_ts and _is_agent_response(prev_type, msg.type):
+            agent_ms += _calculate_gap_ms(prev_ts, msg.timestamp)
 
-        if prev_ts and prev_type:
-            gap_ms = (ts - prev_ts).total_seconds() * 1000
-            is_agent_response = prev_type in ("user", "assistant") and msg.type == "assistant"
-            if is_agent_response:
-                agent_ms += gap_ms
-
-        prev_ts = ts
+        prev_ts = msg.timestamp
         prev_type = msg.type
 
     return agent_ms
