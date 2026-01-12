@@ -111,16 +111,12 @@
                         @click="goToSession(session.session_id)">
                         <td class="px-4 py-3 text-white/70 whitespace-nowrap" x-text="session.project_name"></td>
                         <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatTime(session.start_time)"></td>
-                        <td class="px-4 py-3 text-white/50" x-text="session.description"></td>
+                        <td class="px-4 py-3 text-white/70" x-text="session.description"></td>
                         <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatDuration(session.duration_seconds)"></td>
-                        <td class="px-4 py-3 text-cyan-400 whitespace-nowrap" x-text="formatDuration(session.agent_time_seconds)"></td>
-                        <td class="px-4 py-3 text-amber-400 whitespace-nowrap" x-text="formatDuration(session.tool_time_seconds)"></td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap" x-html="formatLoc(session.git_loc)"></td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap">
-                            <span class="text-amber-400" x-text="formatTokens(session.input_tokens)"></span>
-                            <span class="text-white/30">/</span>
-                            <span class="text-white/50" x-text="formatTokens(session.output_tokens)"></span>
-                        </td>
+                        <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatDuration(session.agent_time_seconds)"></td>
+                        <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatDuration(session.tool_time_seconds)"></td>
+                        <td class="px-4 py-3 text-white/50 text-right whitespace-nowrap" x-html="formatLoc(session.git_loc)"></td>
+                        <td class="px-4 py-3 text-white/50 text-right whitespace-nowrap" x-text="formatTokens(session.input_tokens + session.output_tokens)"></td>
                     </tr>
                 </template>
             </tbody>

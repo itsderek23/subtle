@@ -150,11 +150,11 @@ function sessionsListApp() {
         formatTokens,
 
         formatLoc(loc) {
-            if (!loc) return '<span class="text-white/30">–</span>';
+            if (!loc) return '–';
             const added = loc.added || 0;
             const removed = loc.removed || 0;
-            if (added === 0 && removed === 0) return '<span class="text-white/30">–</span>';
-            return `<span class="text-green-400">+${added}</span><span class="text-white/30">/</span><span class="text-red-400">-${removed}</span>`;
+            if (added === 0 && removed === 0) return '–';
+            return `+${added}/-${removed}`;
         }
     };
 }
