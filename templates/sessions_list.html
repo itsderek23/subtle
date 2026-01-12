@@ -38,7 +38,8 @@
                     <th class="px-4 py-3 font-medium">Project</th>
                     <th class="px-4 py-3 font-medium">Start Time</th>
                     <th class="px-4 py-3 font-medium">Duration</th>
-                    <th class="px-4 py-3 font-medium">Exec Time</th>
+                    <th class="px-4 py-3 font-medium">Agent</th>
+                    <th class="px-4 py-3 font-medium">Tools</th>
                     <th class="px-4 py-3 font-medium text-right">Errors</th>
                     <th class="px-4 py-3 font-medium text-right">Commits</th>
                     <th class="px-4 py-3 font-medium text-right">Tool LOC</th>
@@ -49,14 +50,14 @@
             <tbody>
                 <template x-if="loading">
                     <tr>
-                        <td colspan="9" class="px-4 py-8 text-center text-white/40">
+                        <td colspan="10" class="px-4 py-8 text-center text-white/40">
                             Loading sessions...
                         </td>
                     </tr>
                 </template>
                 <template x-if="!loading && sessions.length === 0">
                     <tr>
-                        <td colspan="9" class="px-4 py-8 text-center text-white/40">
+                        <td colspan="10" class="px-4 py-8 text-center text-white/40">
                             No sessions found
                         </td>
                     </tr>
@@ -74,7 +75,8 @@
                         <td class="px-4 py-3 text-white/70" x-text="session.project_name"></td>
                         <td class="px-4 py-3 text-white/50" x-text="formatTime(session.start_time)"></td>
                         <td class="px-4 py-3 text-white/50" x-text="formatDuration(session.duration_seconds)"></td>
-                        <td class="px-4 py-3 text-white/50" x-text="formatDuration(session.execution_time_seconds)"></td>
+                        <td class="px-4 py-3 text-cyan-400" x-text="formatDuration(session.agent_time_seconds)"></td>
+                        <td class="px-4 py-3 text-amber-400" x-text="formatDuration(session.tool_time_seconds)"></td>
                         <td class="px-4 py-3 text-right" :class="session.error_count ? 'text-red-400' : 'text-white/50'" x-text="session.error_count || '–'"></td>
                         <td class="px-4 py-3 text-right text-white/50" x-text="session.commit_count || '–'"></td>
                         <td class="px-4 py-3 text-right" x-html="formatLoc(session.tool_loc)"></td>

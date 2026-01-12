@@ -1,3 +1,28 @@
+function formatDuration(seconds) {
+    if (seconds === null || seconds === undefined) return '–';
+    if (seconds === 0) return '0ms';
+
+    if (seconds < 1) {
+        return `${Math.round(seconds * 1000)}ms`;
+    }
+    if (seconds < 60) {
+        return `${seconds.toFixed(1)}s`;
+    }
+    if (seconds < 3600) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.round(seconds % 60);
+        return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    }
+    if (seconds < 86400) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.round((seconds % 3600) / 60);
+        return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    const d = Math.floor(seconds / 86400);
+    const h = Math.round((seconds % 86400) / 3600);
+    return h > 0 ? `${d}d ${h}h` : `${d}d`;
+}
+
 function sessionsListApp() {
     return {
         sessions: [],
@@ -78,15 +103,7 @@ function sessionsListApp() {
             });
         },
 
-        formatDuration(seconds) {
-            if (!seconds) return '–';
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            if (hours > 0) {
-                return `${hours}h ${minutes}m`;
-            }
-            return `${minutes}m`;
-        },
+        formatDuration,
 
         formatTokens(count) {
             if (!count) return '0';
@@ -141,7 +158,9 @@ function messageBreakdownApp(sessionId) {
         getPercentage(count) {
             if (this.total === 0) return 0;
             return (count / this.total) * 100;
-        }
+        },
+
+        formatDuration
     };
 }
 
@@ -160,7 +179,8 @@ function sessionDetailApp(sessionId) {
         debounceTimer: null,
         summary: {
             durationSeconds: null,
-            executionTimeSeconds: null,
+            agentTimeSeconds: null,
+            toolTimeSeconds: null,
             errorCount: 0,
             commits: 0,
             toolLoc: { added: 0, removed: 0 },
@@ -252,7 +272,8 @@ function sessionDetailApp(sessionId) {
 
             this.summary = {
                 durationSeconds: session.duration_seconds,
-                executionTimeSeconds: session.execution_time_seconds,
+                agentTimeSeconds: session.agent_time_seconds,
+                toolTimeSeconds: session.tool_time_seconds,
                 errorCount: session.error_count,
                 commits,
                 toolLoc: { added: toolAdded, removed: toolRemoved },
@@ -336,14 +357,6 @@ function sessionDetailApp(sessionId) {
             return model.slice(0, 10);
         },
 
-        formatDuration(seconds) {
-            if (!seconds) return '–';
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            if (hours > 0) {
-                return `${hours}h ${minutes}m`;
-            }
-            return `${minutes}m`;
-        }
+        formatDuration
     };
 }
