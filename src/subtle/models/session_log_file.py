@@ -306,34 +306,37 @@ class SessionLogFile:
                 count += 1
         return count
 
-    def message_breakdown(self) -> dict:
+    def _collect_category_counts(self) -> Counter[tuple[str, str]]:
         counts: Counter[tuple[str, str]] = Counter()
         for msg in self.messages():
             cat = msg.breakdown_category
             if cat:
-                key = (cat["category"], cat["type"])
-                counts[key] += 1
+                counts[(cat["category"], cat["type"])] += 1
+        return counts
 
+    def _build_breakdown_item(
+        self, category: str, msg_type: str, count: int, tool_times: dict[str, float]
+    ) -> dict:
+        item: dict = {"category": category, "count": count, "type": msg_type}
+        has_tool_time = msg_type == "tool" and category in tool_times
+        if has_tool_time:
+            item["time_seconds"] = tool_times[category] / 1000
+        return item
+
+    def message_breakdown(self) -> dict:
+        counts = self._collect_category_counts()
         exec_breakdown = self.execution_breakdown
         tool_times = exec_breakdown.tool_breakdown
 
-        breakdown = []
-        for (category, msg_type), count in counts.items():
-            item: dict = {
-                "category": category,
-                "count": count,
-                "type": msg_type,
-            }
-            if msg_type == "tool" and category in tool_times:
-                item["time_seconds"] = tool_times[category] / 1000
-            breakdown.append(item)
-
+        breakdown = [
+            self._build_breakdown_item(category, msg_type, count, tool_times)
+            for (category, msg_type), count in counts.items()
+        ]
         breakdown.sort(key=lambda x: (TYPE_ORDER.get(x["type"], 99), -x["count"]))
 
-        total = sum(item["count"] for item in breakdown)
         return {
             "breakdown": breakdown,
-            "total": total,
+            "total": sum(item["count"] for item in breakdown),
             "agent_time_seconds": exec_breakdown.agent_ms / 1000,
             "tool_time_seconds": exec_breakdown.tool_ms / 1000,
         }
