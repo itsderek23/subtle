@@ -69,7 +69,7 @@
                         </td>
                     </tr>
                 </template>
-                <template x-for="session in filteredSessions" :key="session.session_id">
+                <template x-for="(session, idx) in filteredSessions" :key="idx">
                     <tr class="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
                         @click="goToSession(session.session_id)">
                         <td class="px-4 py-3 text-white/70" x-text="session.project_name"></td>

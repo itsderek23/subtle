@@ -23,6 +23,17 @@ function formatDuration(seconds) {
     return h > 0 ? `${d}d ${h}h` : `${d}d`;
 }
 
+function formatTokens(count) {
+    if (!count) return '0';
+    if (count >= 1000000) {
+        return (count / 1000000).toFixed(1) + 'M';
+    }
+    if (count >= 1000) {
+        return (count / 1000).toFixed(1) + 'K';
+    }
+    return count.toString();
+}
+
 function sessionsListApp() {
     return {
         sessions: [],
@@ -104,17 +115,7 @@ function sessionsListApp() {
         },
 
         formatDuration,
-
-        formatTokens(count) {
-            if (!count) return '0';
-            if (count >= 1000000) {
-                return (count / 1000000).toFixed(1) + 'M';
-            }
-            if (count >= 1000) {
-                return (count / 1000).toFixed(0) + 'K';
-            }
-            return count.toString();
-        },
+        formatTokens,
 
         formatLoc(loc) {
             if (!loc) return '<span class="text-white/30">–</span>';
@@ -164,11 +165,119 @@ function messageBreakdownApp(sessionId) {
     };
 }
 
+function classifyMessage(msg) {
+    const isToolResult = msg.type === 'user' && msg.tool_results && msg.tool_results.length > 0;
+    const isUserMessage = msg.type === 'user' && msg.text_content && msg.text_content.trim() && !isToolResult;
+    const isAssistantMessage = msg.type === 'assistant';
+    return { isUserMessage, isAssistantMessage, isToolResult };
+}
+
+function createUserTurn(msg) {
+    return {
+        type: 'user',
+        content: msg.text_content,
+        messageIndices: [msg.index],
+        timestamp: msg.timestamp,
+    };
+}
+
+function createAssistantTurn(msg) {
+    return {
+        type: 'assistant',
+        segments: [],
+        messageIndices: [],
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalDuration: 0,
+        timestamp: msg.timestamp,
+        model: msg.model,
+    };
+}
+
+function addTextSegment(turn, msg) {
+    if (msg.text_content && msg.text_content.trim()) {
+        turn.segments.push({
+            type: 'text',
+            content: msg.text_content,
+            thinking: msg.thinking,
+            messageIndex: msg.index,
+        });
+    }
+}
+
+function addToolSegments(turn, msg) {
+    if (msg.tool_uses && msg.tool_uses.length > 0) {
+        for (const tool of msg.tool_uses) {
+            turn.segments.push({
+                type: 'tool',
+                tool: tool,
+                result: null,
+                messageIndex: msg.index,
+            });
+        }
+    }
+}
+
+function updateAssistantTurnStats(turn, msg) {
+    turn.messageIndices.push(msg.index);
+    turn.totalInputTokens += msg.input_tokens || 0;
+    turn.totalOutputTokens += msg.output_tokens || 0;
+    if (msg.duration_seconds) {
+        turn.totalDuration += msg.duration_seconds;
+    }
+    if (msg.is_commit) {
+        turn.hasCommit = true;
+        turn.commitInfo = msg.commit_info;
+    }
+}
+
+function attachToolResults(turn, msg) {
+    for (const result of msg.tool_results) {
+        const toolSegment = turn.segments.find(
+            s => s.type === 'tool' && s.tool && s.tool.id === result.tool_use_id
+        );
+        if (toolSegment) {
+            toolSegment.result = result;
+            toolSegment.resultMessageIndex = msg.index;
+        }
+    }
+    turn.messageIndices.push(msg.index);
+}
+
+function segmentMatchesSearch(seg, searchResults) {
+    if (seg.messageIndex !== undefined && searchResults.includes(seg.messageIndex)) return true;
+    if (seg.resultMessageIndex !== undefined && searchResults.includes(seg.resultMessageIndex)) return true;
+    return false;
+}
+
+function filterUserTurn(turn, searchResults) {
+    if (turn.messageIndices.some(idx => searchResults.includes(idx))) {
+        return turn;
+    }
+    return null;
+}
+
+function filterAssistantTurn(turn, searchResults) {
+    const filteredSegments = turn.segments.filter(seg => segmentMatchesSearch(seg, searchResults));
+    if (filteredSegments.length > 0) {
+        return { ...turn, segments: filteredSegments };
+    }
+    return null;
+}
+
+async function fetchMessagePanel(sessionId, messageIndex) {
+    const response = await fetch(`/api/messages/${sessionId}/${messageIndex}`);
+    return response.json();
+}
+
 function sessionDetailApp(sessionId) {
     return {
         sessionId: sessionId,
         messages: [],
+        turns: [],
         loading: true,
+        selectedTurnIndex: null,
+        selectedMessageIndex: null,
         selectedIndex: null,
         panelOpen: false,
         panelLoading: false,
@@ -177,6 +286,8 @@ function sessionDetailApp(sessionId) {
         searchResults: null,
         searchLoading: false,
         debounceTimer: null,
+        expandedTurns: {},
+        expandedTools: {},
         summary: {
             durationSeconds: null,
             agentTimeSeconds: null,
@@ -185,6 +296,19 @@ function sessionDetailApp(sessionId) {
             commits: 0,
             toolLoc: { added: 0, removed: 0 },
             gitLoc: { added: 0, removed: 0, found: false }
+        },
+
+        get filteredTurns() {
+            if (this.searchResults === null) {
+                return this.turns;
+            }
+            return this.turns
+                .map(turn => {
+                    if (turn.type === 'user') return filterUserTurn(turn, this.searchResults);
+                    if (turn.type === 'assistant') return filterAssistantTurn(turn, this.searchResults);
+                    return null;
+                })
+                .filter(Boolean);
         },
 
         get filteredMessages() {
@@ -242,6 +366,7 @@ function sessionDetailApp(sessionId) {
                 this.messages = await messagesRes.json();
                 const session = await sessionRes.json();
                 this.computeSummary(session);
+                this.groupMessagesIntoTurns();
             } catch (error) {
                 console.error('Failed to load messages:', error);
             } finally {
@@ -281,20 +406,173 @@ function sessionDetailApp(sessionId) {
             };
         },
 
-        async selectMessage(index) {
-            this.selectedIndex = index;
+        groupMessagesIntoTurns() {
+            const turns = [];
+            let currentTurn = null;
+
+            for (const msg of this.messages) {
+                const { isUserMessage, isAssistantMessage, isToolResult } = classifyMessage(msg);
+
+                if (isUserMessage) {
+                    if (currentTurn) turns.push(currentTurn);
+                    turns.push(createUserTurn(msg));
+                    currentTurn = null;
+                } else if (isAssistantMessage) {
+                    if (!currentTurn || currentTurn.type !== 'assistant') {
+                        if (currentTurn) turns.push(currentTurn);
+                        currentTurn = createAssistantTurn(msg);
+                    }
+                    addTextSegment(currentTurn, msg);
+                    addToolSegments(currentTurn, msg);
+                    updateAssistantTurnStats(currentTurn, msg);
+                } else if (isToolResult && currentTurn && currentTurn.type === 'assistant') {
+                    attachToolResults(currentTurn, msg);
+                }
+            }
+
+            if (currentTurn) turns.push(currentTurn);
+            this.turns = turns;
+        },
+
+        isExpanded(turnIndex) {
+            return this.expandedTurns[turnIndex] === true;
+        },
+
+        toggleExpand(turnIndex) {
+            this.expandedTurns[turnIndex] = !this.expandedTurns[turnIndex];
+        },
+
+        isToolExpanded(turnIndex, toolIndex) {
+            const key = `${turnIndex}-${toolIndex}`;
+            return this.expandedTools[key] === true;
+        },
+
+        toggleToolExpand(turnIndex, toolIndex) {
+            const key = `${turnIndex}-${toolIndex}`;
+            this.expandedTools[key] = !this.expandedTools[key];
+        },
+
+        truncateText(text, maxLength = 300) {
+            if (!text || text.length <= maxLength) return text;
+            return text.substring(0, maxLength);
+        },
+
+        needsTruncation(text, maxLength = 300) {
+            return text && text.length > maxLength;
+        },
+
+        renderMarkdown(text) {
+            if (!text) return '';
+            if (typeof marked !== 'undefined') {
+                return marked.parse(text);
+            }
+            return text.replace(/\n/g, '<br>');
+        },
+
+        formatUserContent(content) {
+            if (!content) return '';
+            let text = content
+                .replace(/<command-message>.*?<\/command-message>\s*/g, '')
+                .replace(/<command-name>(.*?)<\/command-name>/g, '$1')
+                .replace(/<command-args>(.*?)<\/command-args>/g, ' $1')
+                .replace(/<[^>]+>/g, '')
+                .trim();
+            return text;
+        },
+
+        getToolArgs(tool) {
+            const name = tool.name;
+            if (name === 'Bash' && tool.command) {
+                const cmd = tool.command.length > 60 ? tool.command.substring(0, 60) + '…' : tool.command;
+                return cmd;
+            }
+            if (tool.file_path) {
+                return tool.file_path;
+            }
+            if (tool.pattern) {
+                return tool.pattern;
+            }
+            if (tool.query) {
+                return tool.query;
+            }
+            return '';
+        },
+
+        truncateResult(text) {
+            if (!text) return '(No content)';
+            const firstLine = text.split('\n')[0];
+            const lineCount = text.split('\n').length;
+            if (lineCount > 1) {
+                const preview = firstLine.length > 80 ? firstLine.substring(0, 80) + '…' : firstLine;
+                return `${preview} … +${lineCount - 1} lines`;
+            }
+            return firstLine.length > 100 ? firstLine.substring(0, 100) + '…' : firstLine;
+        },
+
+        getToolSummary(tool) {
+            const name = tool.name;
+            const fileName = tool.file_path ? tool.file_path.split('/').pop() : null;
+
+            const handlers = {
+                Edit: () => {
+                    if (!fileName) return null;
+                    if (tool.edit_summary) {
+                        const diff = tool.edit_summary.new_lines - tool.edit_summary.old_lines;
+                        return `Edited ${fileName} (${diff >= 0 ? '+' : ''}${diff} lines)`;
+                    }
+                    return `Edited ${fileName}`;
+                },
+                Write: () => fileName ? `Wrote ${fileName}${tool.write_lines ? ` (${tool.write_lines} lines)` : ''}` : null,
+                Read: () => fileName ? `Read ${fileName}` : null,
+                Bash: () => tool.command ? `Ran: ${tool.command}` : null,
+                Glob: () => tool.pattern ? `Searched files: ${tool.pattern}` : null,
+                Grep: () => tool.pattern ? `Searched for: ${tool.pattern}` : null,
+                WebSearch: () => tool.query ? `Web search: ${tool.query}` : null,
+                Task: () => 'Launched agent task',
+            };
+
+            const handler = handlers[name];
+            return (handler && handler()) || name;
+        },
+
+        getToolIcon(toolName) {
+            const icons = {
+                'Edit': '\u270F\uFE0F',
+                'Write': '\u{1F4DD}',
+                'Read': '\u{1F4D6}',
+                'Bash': '\u26A1',
+                'Glob': '\u{1F50D}',
+                'Grep': '\u{1F50E}',
+                'WebSearch': '\u{1F310}',
+                'WebFetch': '\u{1F310}',
+                'Task': '\u{1F916}',
+            };
+            return icons[toolName] || '\u{1F527}';
+        },
+
+        async loadMessagePanel(messageIndex) {
             this.panelOpen = true;
             this.panelLoading = true;
             this.rawMessage = null;
 
             try {
-                const response = await fetch(`/api/messages/${this.sessionId}/${index}`);
-                this.rawMessage = await response.json();
+                this.rawMessage = await fetchMessagePanel(this.sessionId, messageIndex);
             } catch (error) {
                 console.error('Failed to load message:', error);
             } finally {
                 this.panelLoading = false;
             }
+        },
+
+        async selectTurn(turnIndex, messageIndex) {
+            this.selectedTurnIndex = turnIndex;
+            this.selectedMessageIndex = messageIndex;
+            await this.loadMessagePanel(messageIndex);
+        },
+
+        async selectMessage(index) {
+            this.selectedIndex = index;
+            await this.loadMessagePanel(index);
         },
 
         closePanel() {
