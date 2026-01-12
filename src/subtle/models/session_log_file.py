@@ -18,6 +18,100 @@ TYPE_ORDER = {"tool": 0, "assistant": 1, "user": 2}
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
+EXCLUDED_TOOLS = {"AskUserQuestion"}
+
+
+def _calculate_turn_duration(messages: list) -> float:
+    return sum(
+        msg.raw.get("durationMs", 0)
+        for msg in messages
+        if msg.type == "system" and msg.raw.get("subtype") == "turn_duration"
+    )
+
+
+def _track_tool_use(item: dict, ts: datetime, tool_uses: dict[str, tuple[str, datetime]]) -> None:
+    tool_id = item.get("id")
+    tool_name = item.get("name", "unknown")
+    if not tool_id:
+        return
+    if tool_name in EXCLUDED_TOOLS:
+        return
+    tool_uses[tool_id] = (tool_name, ts)
+
+
+def _process_tool_result(
+    item: dict, ts: datetime, tool_uses: dict[str, tuple[str, datetime]]
+) -> tuple[str, float] | None:
+    tool_id = item.get("tool_use_id")
+    if not tool_id or tool_id not in tool_uses:
+        return None
+    tool_name, use_ts = tool_uses[tool_id]
+    duration_ms = (ts - use_ts).total_seconds() * 1000
+    del tool_uses[tool_id]
+    return (tool_name, duration_ms)
+
+
+def _process_message_content(
+    content, ts: datetime, tool_uses: dict[str, tuple[str, datetime]]
+) -> list[tuple[str, float]]:
+    if not isinstance(content, list):
+        return []
+
+    tool_durations = []
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+
+        item_type = item.get("type")
+        if item_type == "tool_use":
+            _track_tool_use(item, ts, tool_uses)
+        elif item_type == "tool_result":
+            result = _process_tool_result(item, ts, tool_uses)
+            if result:
+                tool_durations.append(result)
+
+    return tool_durations
+
+
+def _calculate_agent_time(messages: list) -> float:
+    agent_ms = 0.0
+    prev_ts = None
+    prev_type = None
+
+    for msg in messages:
+        ts = msg.timestamp
+        if not ts or msg.type == "system":
+            continue
+
+        if prev_ts and prev_type:
+            gap_ms = (ts - prev_ts).total_seconds() * 1000
+            is_agent_response = prev_type in ("user", "assistant") and msg.type == "assistant"
+            if is_agent_response:
+                agent_ms += gap_ms
+
+        prev_ts = ts
+        prev_type = msg.type
+
+    return agent_ms
+
+
+def _calculate_tool_breakdown(messages: list) -> tuple[float, dict[str, float]]:
+    tool_uses: dict[str, tuple[str, datetime]] = {}
+    tool_breakdown: dict[str, float] = defaultdict(float)
+    tool_ms = 0.0
+
+    for msg in messages:
+        ts = msg.timestamp
+        if not ts or msg.type == "system":
+            continue
+
+        content = msg.raw.get("message", {}).get("content")
+        for tool_name, duration_ms in _process_message_content(content, ts, tool_uses):
+            tool_ms += duration_ms
+            tool_breakdown[tool_name] += duration_ms
+
+    return tool_ms, dict(tool_breakdown)
+
 
 def decode_project_path(encoded: str) -> str:
     if encoded.startswith("-"):
@@ -115,66 +209,14 @@ class SessionLogFile:
     def execution_breakdown(self) -> ExecutionBreakdown:
         messages = self.messages()
 
-        turn_duration_ms = sum(
-            msg.raw.get("durationMs", 0)
-            for msg in messages
-            if msg.type == "system" and msg.raw.get("subtype") == "turn_duration"
-        )
-
-        agent_ms = 0.0
-        tool_ms = 0.0
-        tool_breakdown: dict[str, float] = defaultdict(float)
-
-        tool_uses: dict[str, tuple[str, datetime]] = {}
-        excluded_tools = {"AskUserQuestion"}
-
-        prev_ts = None
-        prev_type = None
-
-        for msg in messages:
-            ts = msg.timestamp
-            if not ts or msg.type == "system":
-                continue
-
-            content = msg.raw.get("message", {}).get("content")
-            if isinstance(content, list):
-                for item in content:
-                    if not isinstance(item, dict):
-                        continue
-
-                    if item.get("type") == "tool_use":
-                        tool_id = item.get("id")
-                        tool_name = item.get("name", "unknown")
-                        if tool_id and tool_name not in excluded_tools:
-                            tool_uses[tool_id] = (tool_name, ts)
-
-                    elif item.get("type") == "tool_result":
-                        tool_id = item.get("tool_use_id")
-                        if tool_id and tool_id in tool_uses:
-                            tool_name, use_ts = tool_uses[tool_id]
-                            duration_ms = (ts - use_ts).total_seconds() * 1000
-                            tool_ms += duration_ms
-                            tool_breakdown[tool_name] += duration_ms
-                            del tool_uses[tool_id]
-
-            if prev_ts and prev_type:
-                gap_ms = (ts - prev_ts).total_seconds() * 1000
-
-                if prev_type == "user" and msg.type == "assistant":
-                    agent_ms += gap_ms
-                elif prev_type == "assistant" and msg.type == "assistant":
-                    agent_ms += gap_ms
-
-            prev_ts = ts
-            prev_type = msg.type
-
-        if turn_duration_ms > 0:
-            agent_ms = turn_duration_ms
+        turn_duration_ms = _calculate_turn_duration(messages)
+        agent_ms = turn_duration_ms if turn_duration_ms > 0 else _calculate_agent_time(messages)
+        tool_ms, tool_breakdown = _calculate_tool_breakdown(messages)
 
         return ExecutionBreakdown(
             agent_ms=agent_ms,
             tool_ms=tool_ms,
-            tool_breakdown=dict(tool_breakdown),
+            tool_breakdown=tool_breakdown,
         )
 
     @property
