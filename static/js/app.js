@@ -41,7 +41,7 @@ function formatHours(hours) {
 
 function formatPercentChange(percent) {
     if (percent === null || percent === undefined) return '';
-    const sign = percent >= 0 ? '+ ' : '- ';
+    const sign = percent >= 0 ? '+' : '-';
     return `${sign}${Math.abs(Math.round(percent))}%`;
 }
 
@@ -174,16 +174,8 @@ function sessionsListApp() {
                             data: currentData,
                             backgroundColor: '#d97706',
                             borderRadius: 2,
-                            barPercentage: 0.95,
-                            categoryPercentage: 0.9,
-                        },
-                        {
-                            label: 'Previous 7D',
-                            data: prevWeekData,
-                            backgroundColor: '#6b7280',
-                            borderRadius: 2,
-                            barPercentage: 0.5,
-                            categoryPercentage: 0.9,
+                            barPercentage: 0.92,
+                            categoryPercentage: 0.95,
                         }
                     ]
                 },
