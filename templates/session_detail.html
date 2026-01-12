@@ -42,28 +42,28 @@
                 </div>
             </div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
             <div class="text-white/40 text-xs uppercase mb-1">Messages</div>
             <div class="text-2xl text-white/70" x-text="messages.length"></div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
             <div class="text-white/40 text-xs uppercase mb-1">Tool LOC</div>
-            <div class="text-lg">
+            <div class="text-2xl">
                 <span class="text-green-400" x-text="'+' + summary.toolLoc.added"></span>
                 <span class="text-white/30">/</span>
                 <span class="text-red-400" x-text="'-' + summary.toolLoc.removed"></span>
             </div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
             <div class="text-white/40 text-xs uppercase mb-1">Git LOC</div>
-            <div class="text-lg" x-show="summary.gitLoc.found">
+            <div class="text-2xl" x-show="summary.gitLoc.found">
                 <span class="text-green-400" x-text="'+' + summary.gitLoc.added"></span>
                 <span class="text-white/30">/</span>
                 <span class="text-red-400" x-text="'-' + summary.gitLoc.removed"></span>
             </div>
-            <div class="text-lg text-white/30" x-show="!summary.gitLoc.found">–</div>
+            <div class="text-2xl text-white/30" x-show="!summary.gitLoc.found">–</div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
             <div class="text-white/40 text-xs uppercase mb-1">Commits</div>
             <div class="text-2xl text-purple-400" x-text="summary.commits"></div>
         </div>
