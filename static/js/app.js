@@ -66,17 +66,18 @@ function sessionsListApp() {
 
         get totalHours() {
             if (!this.dailyUsage || !this.dailyUsage.current_week) return 0;
-            const lastDay = this.dailyUsage.current_week[this.dailyUsage.current_week.length - 1];
-            if (!lastDay) return 0;
-            return lastDay.cumulative_total || 0;
+            return this.dailyUsage.current_week.reduce((sum, d) => sum + (d.hours || 0), 0);
+        },
+
+        get prevTotalHours() {
+            if (!this.dailyUsage || !this.dailyUsage.previous_week) return 0;
+            return this.dailyUsage.previous_week.reduce((sum, d) => sum + (d.hours || 0), 0);
         },
 
         get percentChange() {
             if (!this.dailyUsage || !this.dailyUsage.current_week || !this.dailyUsage.previous_week) return null;
             const currentTotal = this.totalHours;
-            const prevLastDay = this.dailyUsage.previous_week[this.dailyUsage.previous_week.length - 1];
-            if (!prevLastDay) return null;
-            const prevTotal = prevLastDay.cumulative_total || 0;
+            const prevTotal = this.prevTotalHours;
             if (prevTotal === 0) return currentTotal > 0 ? 100 : null;
             return ((currentTotal - prevTotal) / prevTotal) * 100;
         },
@@ -147,8 +148,8 @@ function sessionsListApp() {
             const previousWeek = this.dailyUsage.previous_week;
 
             const labels = currentWeek.map(d => d.weekday);
-            const currentData = currentWeek.map(d => d.cumulative_total);
-            const prevWeekData = previousWeek.map(d => d.cumulative_total);
+            const currentData = currentWeek.map(d => d.hours);
+            const prevWeekData = previousWeek.map(d => d.hours);
 
             this.chart = new Chart(ctx, {
                 type: 'bar',
@@ -161,21 +162,15 @@ function sessionsListApp() {
                             backgroundColor: '#d97706',
                             borderRadius: 2,
                             barPercentage: 0.95,
-                            categoryPercentage: 0.95,
-                            order: 2,
+                            categoryPercentage: 0.9,
                         },
                         {
                             label: 'Previous 7D',
                             data: prevWeekData,
-                            type: 'line',
-                            borderColor: '#6b7280',
-                            backgroundColor: 'transparent',
-                            borderWidth: 2,
-                            pointBackgroundColor: '#6b7280',
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            tension: 0,
-                            order: 1,
+                            backgroundColor: '#6b7280',
+                            borderRadius: 2,
+                            barPercentage: 0.5,
+                            categoryPercentage: 0.9,
                         }
                     ]
                 },

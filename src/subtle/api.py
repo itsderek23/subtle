@@ -105,17 +105,15 @@ def _aggregate_daily_time(sessions: list[SessionLogFile]) -> dict[str, dict]:
 
 def _build_week_data(dates: list[datetime], daily: dict[str, dict]) -> list[dict]:
     result = []
-    cumulative = 0.0
     for d in dates:
         date_str = d.strftime("%Y-%m-%d")
         weekday = d.strftime("%a")
         day_data = daily.get(date_str, {"ai_seconds": 0, "tool_seconds": 0})
         hours = (day_data["ai_seconds"] + day_data["tool_seconds"]) / 3600
-        cumulative += hours
         result.append({
             "weekday": weekday,
             "date": date_str,
-            "cumulative_total": round(cumulative, 2),
+            "hours": round(hours, 2),
         })
     return result
 
