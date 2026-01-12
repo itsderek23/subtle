@@ -53,6 +53,7 @@ function sessionsListApp() {
         },
 
         get totalTokens() {
+            if (!this.dailyUsage || !Array.isArray(this.dailyUsage)) return 0;
             return this.dailyUsage.reduce((sum, d) => sum + d.tokens, 0);
         },
 
@@ -100,7 +101,10 @@ function sessionsListApp() {
                     fetch('/api/sessions/daily-usage')
                 ]);
                 this.sessions = await sessionsRes.json();
-                this.dailyUsage = await dailyRes.json();
+                if (dailyRes.ok) {
+                    const dailyData = await dailyRes.json();
+                    this.dailyUsage = Array.isArray(dailyData) ? dailyData : [];
+                }
             } catch (error) {
                 console.error('Failed to load sessions:', error);
             } finally {
@@ -110,6 +114,7 @@ function sessionsListApp() {
         },
 
         getBarHeight(tokens) {
+            if (!this.dailyUsage || this.dailyUsage.length === 0) return 0;
             const maxTokens = Math.max(...this.dailyUsage.map(d => d.tokens), 1);
             return (tokens / maxTokens) * 100;
         },
