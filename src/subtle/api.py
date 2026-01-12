@@ -137,9 +137,20 @@ def get_daily_usage(days: int = 7):
     current_week = _build_week_data(current_week_dates, daily)
     previous_week = _build_week_data(previous_week_dates, daily)
 
+    current_commits = sum(
+        s.commit_count for s in sessions
+        if s.start_time and s.start_time.replace(tzinfo=None) >= current_week_dates[0]
+    )
+    previous_commits = sum(
+        s.commit_count for s in sessions
+        if s.start_time and s.start_time.replace(tzinfo=None) < current_week_dates[0]
+    )
+
     return {
         "current_week": current_week,
         "previous_week": previous_week,
+        "current_commits": current_commits,
+        "previous_commits": previous_commits,
     }
 
 

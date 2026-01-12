@@ -41,8 +41,8 @@ function formatHours(hours) {
 
 function formatPercentChange(percent) {
     if (percent === null || percent === undefined) return '';
-    const sign = percent >= 0 ? '+' : '';
-    return ` ${sign}${Math.round(percent)}%`;
+    const sign = percent >= 0 ? '+ ' : '- ';
+    return `${sign}${Math.abs(Math.round(percent))}%`;
 }
 
 function sessionsListApp() {
@@ -80,6 +80,19 @@ function sessionsListApp() {
             const prevTotal = this.prevTotalHours;
             if (prevTotal === 0) return currentTotal > 0 ? 100 : null;
             return ((currentTotal - prevTotal) / prevTotal) * 100;
+        },
+
+        get totalCommits() {
+            if (!this.dailyUsage) return 0;
+            return this.dailyUsage.current_commits || 0;
+        },
+
+        get commitsPercentChange() {
+            if (!this.dailyUsage) return null;
+            const current = this.dailyUsage.current_commits || 0;
+            const prev = this.dailyUsage.previous_commits || 0;
+            if (prev === 0) return current > 0 ? 100 : null;
+            return ((current - prev) / prev) * 100;
         },
 
         handleSearchInput() {

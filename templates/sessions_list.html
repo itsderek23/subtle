@@ -4,22 +4,36 @@
 
 {% block content %}
 <div x-data="sessionsListApp()">
-    <!-- Claude Execution Time Chart -->
-    <div class="bg-white/[0.02] rounded-lg border border-white/10 p-6 mb-4">
-        <div class="flex items-center justify-between mb-4">
+    <!-- Stats Row -->
+    <div class="flex gap-4 mb-4">
+        <!-- Claude Execution Time Chart -->
+        <div class="flex-1 bg-white/[0.02] rounded-lg border border-white/10 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-mono text-xs uppercase tracking-wider text-white/60">
+                    Claude Execution Time <span class="text-white/30">(7D)</span>
+                </h3>
+                <span class="font-mono text-xs">
+                    <span class="text-amber-400" x-text="formatHours(totalHours) + ' hrs'"></span>
+                    <span x-show="percentChange !== null" :class="percentChange >= 0 ? 'text-green-400' : 'text-red-400'" x-text="formatPercentChange(percentChange)"></span>
+                </span>
+            </div>
+            <div x-show="!dailyUsageLoading" class="h-32">
+                <canvas id="weeklyActivityChart" x-ref="chartCanvas"></canvas>
+            </div>
+            <div x-show="dailyUsageLoading" class="h-32 flex items-center justify-center">
+                <span class="font-mono text-xs text-white/40">Loading chart...</span>
+            </div>
+        </div>
+
+        <!-- Git Commits Card -->
+        <div class="w-48 bg-white/[0.02] rounded-lg border border-white/10 p-6 flex flex-col">
             <h3 class="font-mono text-xs uppercase tracking-wider text-white/60">
-                Claude Execution Time <span class="text-white/30">(7D)</span>
+                Git Commits <span class="text-white/30">(7D)</span>
             </h3>
-            <span class="font-mono text-xs">
-                <span class="text-amber-400" x-text="formatHours(totalHours) + ' hrs'"></span>
-                <span x-show="percentChange !== null" :class="percentChange >= 0 ? 'text-green-400' : 'text-red-400'" x-text="formatPercentChange(percentChange)"></span>
-            </span>
-        </div>
-        <div x-show="!dailyUsageLoading" class="h-32">
-            <canvas id="weeklyActivityChart" x-ref="chartCanvas"></canvas>
-        </div>
-        <div x-show="dailyUsageLoading" class="h-32 flex items-center justify-center">
-            <span class="font-mono text-xs text-white/40">Loading chart...</span>
+            <div class="font-mono mt-auto">
+                <div class="text-6xl font-light text-amber-400" x-text="totalCommits"></div>
+                <div x-show="commitsPercentChange !== null" class="text-xs mt-1" :class="commitsPercentChange >= 0 ? 'text-green-400' : 'text-red-400'" x-text="formatPercentChange(commitsPercentChange)"></div>
+            </div>
         </div>
     </div>
 
