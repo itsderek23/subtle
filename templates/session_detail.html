@@ -11,14 +11,18 @@
         </h2>
     </div>
 
-    <div class="mb-6 grid grid-cols-7 gap-4" x-show="!loading">
+    <div class="mb-6 grid grid-cols-8 gap-4" x-show="!loading">
         <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">Session Duration</div>
+            <div class="text-white/40 text-xs uppercase mb-1">Duration</div>
             <div class="text-2xl text-white/70" x-text="formatDuration(summary.durationSeconds)"></div>
         </div>
         <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">Execution Time</div>
-            <div class="text-2xl text-cyan-400" x-text="formatDuration(summary.executionTimeSeconds)"></div>
+            <div class="text-white/40 text-xs uppercase mb-1">Agent Time</div>
+            <div class="text-2xl text-cyan-400" x-text="formatDuration(summary.agentTimeSeconds)"></div>
+        </div>
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+            <div class="text-white/40 text-xs uppercase mb-1">Tools Time</div>
+            <div class="text-2xl text-amber-400" x-text="formatDuration(summary.toolTimeSeconds)"></div>
         </div>
         <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
             <div class="text-white/40 text-xs uppercase mb-1">Errors</div>
@@ -60,7 +64,12 @@
                     <div>
                         <div class="flex items-center justify-between mb-1">
                             <span class="font-mono text-xs text-white/70" x-text="item.category"></span>
-                            <span class="font-mono text-[10px] text-white/40" x-text="item.count"></span>
+                            <span class="font-mono text-[10px] text-white/40">
+                                <span x-text="item.count"></span>
+                                <template x-if="item.time_seconds">
+                                    <span class="text-amber-400/70 ml-2" x-text="formatDuration(item.time_seconds)"></span>
+                                </template>
+                            </span>
                         </div>
                         <div class="h-2 w-full overflow-hidden rounded-full bg-white/5">
                             <div class="h-full rounded-full transition-all duration-500"
@@ -82,7 +91,7 @@
                     <th class="px-4 py-3 font-medium w-24">Time</th>
                     <th class="px-4 py-3 font-medium w-20">Model</th>
                     <th class="px-4 py-3 font-medium w-20 text-right">Tokens</th>
-                    <th class="px-4 py-3 font-medium w-32">Tools</th>
+                    <th class="px-4 py-3 font-medium w-24">Duration</th>
                     <th class="px-4 py-3 font-medium w-32">LOC</th>
                 </tr>
             </thead>
@@ -123,7 +132,7 @@
                                 <span>–</span>
                             </template>
                         </td>
-                        <td class="px-4 py-3 text-white/40 truncate max-w-[8rem]" x-text="message.tools.join(', ') || '–'"></td>
+                        <td class="px-4 py-3 text-white/40" x-text="formatDuration(message.duration_seconds)"></td>
                         <td class="px-4 py-3">
                             <template x-if="message.is_commit">
                                 <span class="inline-block px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded">committed</span>
