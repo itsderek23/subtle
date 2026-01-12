@@ -46,6 +46,69 @@ def get_session(session_id: str):
     }
 
 
+EXCLUDED_TOOLS = {"AskUserQuestion"}
+
+
+def _track_tool_use(item: dict, ts, tool_uses: dict[str, float]) -> None:
+    tool_id = item.get("id")
+    tool_name = item.get("name", "")
+    if not tool_id or not ts:
+        return
+    if tool_name in EXCLUDED_TOOLS:
+        return
+    tool_uses[tool_id] = ts.timestamp()
+
+
+def _calculate_tool_duration(item: dict, ts, tool_uses: dict[str, float]) -> float | None:
+    tool_id = item.get("tool_use_id")
+    if not tool_id or not ts:
+        return None
+    if tool_id not in tool_uses:
+        return None
+    duration = ts.timestamp() - tool_uses[tool_id]
+    del tool_uses[tool_id]
+    return duration
+
+
+def _process_content_items(content, ts, tool_uses: dict[str, float]) -> float | None:
+    if not isinstance(content, list):
+        return None
+
+    duration_seconds = None
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+
+        item_type = item.get("type")
+        if item_type == "tool_use":
+            _track_tool_use(item, ts, tool_uses)
+        elif item_type == "tool_result":
+            duration_seconds = _calculate_tool_duration(item, ts, tool_uses)
+
+    return duration_seconds
+
+
+def _build_message_dict(index: int, m, duration_seconds: float | None) -> dict:
+    ts = m.timestamp
+    return {
+        "index": index,
+        "type": m.type,
+        "preview": m.preview,
+        "timestamp": ts.isoformat() if ts else None,
+        "model": m.model,
+        "input_tokens": m.input_tokens,
+        "output_tokens": m.output_tokens,
+        "duration_seconds": duration_seconds,
+        "is_commit": m.is_commit,
+        "edit_loc": m.edit_loc,
+        "write_loc": m.write_loc,
+        "git_diff_loc": m.git_diff_loc,
+        "is_rejection": m.is_rejection,
+        "is_tool_error": m.is_tool_error,
+        "is_command_failure": m.is_command_failure,
+    }
+
+
 @router.get("/sessions/{session_id}/messages")
 def list_messages(session_id: str):
     session = SessionLogFile.from_id(session_id)
@@ -55,54 +118,23 @@ def list_messages(session_id: str):
     messages = session.messages()
     tool_uses: dict[str, float] = {}
     prev_user_ts = None
-    excluded_tools = {"AskUserQuestion"}
     result = []
 
     for i, m in enumerate(messages):
         ts = m.timestamp
-        duration_seconds = None
-
         content = m.raw.get("message", {}).get("content")
-        if isinstance(content, list):
-            for item in content:
-                if not isinstance(item, dict):
-                    continue
 
-                if item.get("type") == "tool_use":
-                    tool_id = item.get("id")
-                    tool_name = item.get("name", "")
-                    if tool_id and ts and tool_name not in excluded_tools:
-                        tool_uses[tool_id] = ts.timestamp()
+        duration_seconds = _process_content_items(content, ts, tool_uses)
 
-                elif item.get("type") == "tool_result":
-                    tool_id = item.get("tool_use_id")
-                    if tool_id and tool_id in tool_uses and ts:
-                        duration_seconds = ts.timestamp() - tool_uses[tool_id]
-                        del tool_uses[tool_id]
-
-        if m.type == "assistant" and prev_user_ts and ts:
+        is_assistant_with_timing = m.type == "assistant" and prev_user_ts and ts
+        if is_assistant_with_timing:
             duration_seconds = ts.timestamp() - prev_user_ts
 
-        if m.type == "user" and ts:
+        is_user_with_timestamp = m.type == "user" and ts
+        if is_user_with_timestamp:
             prev_user_ts = ts.timestamp()
 
-        result.append({
-            "index": i,
-            "type": m.type,
-            "preview": m.preview,
-            "timestamp": ts.isoformat() if ts else None,
-            "model": m.model,
-            "input_tokens": m.input_tokens,
-            "output_tokens": m.output_tokens,
-            "duration_seconds": duration_seconds,
-            "is_commit": m.is_commit,
-            "edit_loc": m.edit_loc,
-            "write_loc": m.write_loc,
-            "git_diff_loc": m.git_diff_loc,
-            "is_rejection": m.is_rejection,
-            "is_tool_error": m.is_tool_error,
-            "is_command_failure": m.is_command_failure,
-        })
+        result.append(_build_message_dict(i, m, duration_seconds))
 
     return result
 
