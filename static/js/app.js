@@ -456,6 +456,12 @@ function sessionDetailApp(sessionId) {
                 const session = await sessionRes.json();
                 this.computeSummary(session);
                 this.groupMessagesIntoTurns();
+                this.$nextTick(() => {
+                    const container = document.getElementById('timeline-container');
+                    if (container) {
+                        renderSessionTimeline(this.messages, container);
+                    }
+                });
             } catch (error) {
                 console.error('Failed to load messages:', error);
             } finally {
