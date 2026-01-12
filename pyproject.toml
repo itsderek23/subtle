@@ -1,6 +1,6 @@
 [project]
 name = "subtle-claude-code"
-version = "0.0.1"
+version = "0.0.2"
 description = "Claude Code session log explorer"
 readme = "README.md"
 license = "MIT"

@@ -1,8 +1,16 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-templates = Jinja2Templates(directory="templates")
+PACKAGE_DIR = Path(__file__).parent
+TEMPLATES_DIR = PACKAGE_DIR / "templates"
+if not TEMPLATES_DIR.exists():
+    PROJECT_ROOT = PACKAGE_DIR.parent.parent
+    TEMPLATES_DIR = PROJECT_ROOT / "templates"
+
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter()
 

@@ -3,7 +3,7 @@
 Explore and analyze your Claude Code session logs with ease. Subtle is a local, privacy-focused web app that helps you understand your Claude Code usage patterns.
 
 _👇 Click the image for a short video:_
-<a href="https://raw.githubusercontent.com/itsderek23/subtle/refs/heads/main/docs/subtle_recording.gif" target="_blank"><img src="./docs/screenshot.png" /></a>
+<a href="./docs/subtle_recording.gif" target="_blank"><img src="./docs/screenshot.png" /></a>
 
 ## Table of Contents
 
