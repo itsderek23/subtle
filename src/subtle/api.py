@@ -193,27 +193,36 @@ def _extract_thinking(m) -> str | None:
     return None
 
 
+def _truncate_command(cmd: str, max_len: int = 100) -> str:
+    return cmd[:max_len] + "..." if len(cmd) > max_len else cmd
+
+
+def _build_edit_summary(inp: dict) -> dict | None:
+    if "old_string" not in inp or "new_string" not in inp:
+        return None
+    return {
+        "old_lines": len(inp["old_string"].splitlines()),
+        "new_lines": len(inp["new_string"].splitlines()),
+    }
+
+
 def _build_tool_info(item: dict) -> dict:
+    inp = item.get("input", {})
     tool_info = {
         "id": item.get("id"),
         "name": item.get("name", ""),
     }
-    inp = item.get("input", {})
 
-    field_mappings = [("file_path", "file_path"), ("pattern", "pattern"), ("query", "query")]
-    for src, dest in field_mappings:
-        if src in inp:
-            tool_info[dest] = inp[src]
+    for field in ("file_path", "pattern", "query"):
+        if field in inp:
+            tool_info[field] = inp[field]
 
     if "command" in inp:
-        cmd = inp["command"]
-        tool_info["command"] = cmd[:100] + "..." if len(cmd) > 100 else cmd
+        tool_info["command"] = _truncate_command(inp["command"])
 
-    if "old_string" in inp and "new_string" in inp:
-        tool_info["edit_summary"] = {
-            "old_lines": len(inp["old_string"].splitlines()),
-            "new_lines": len(inp["new_string"].splitlines()),
-        }
+    edit_summary = _build_edit_summary(inp)
+    if edit_summary:
+        tool_info["edit_summary"] = edit_summary
 
     if "content" in inp and "file_path" in inp:
         tool_info["write_lines"] = len(inp["content"].splitlines())
@@ -233,25 +242,29 @@ def _extract_tool_uses(m) -> list[dict]:
     ]
 
 
+def _truncate_preview(content, max_len: int = 200) -> str:
+    text = content if isinstance(content, str) else str(content)
+    return text[:max_len] + "..." if len(text) > max_len else text
+
+
+def _build_tool_result(item: dict) -> dict:
+    return {
+        "tool_use_id": item.get("tool_use_id"),
+        "is_error": item.get("is_error", False),
+        "preview": _truncate_preview(item.get("content", "")),
+    }
+
+
 def _extract_tool_results(m) -> list[dict]:
     message = m.raw.get("message", {})
     content = message.get("content", [])
     if not isinstance(content, list):
         return []
-    results = []
-    for item in content:
-        if isinstance(item, dict) and item.get("type") == "tool_result":
-            result_content = item.get("content", "")
-            if isinstance(result_content, str):
-                preview = result_content[:200] + "..." if len(result_content) > 200 else result_content
-            else:
-                preview = str(result_content)[:200]
-            results.append({
-                "tool_use_id": item.get("tool_use_id"),
-                "is_error": item.get("is_error", False),
-                "preview": preview,
-            })
-    return results
+    return [
+        _build_tool_result(item)
+        for item in content
+        if isinstance(item, dict) and item.get("type") == "tool_result"
+    ]
 
 
 def _build_message_dict(index: int, m, duration_seconds: float | None) -> dict:
