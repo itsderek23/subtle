@@ -109,34 +109,41 @@ def _build_message_dict(index: int, m, duration_seconds: float | None) -> dict:
     }
 
 
+def _calculate_message_duration(m, prev_user_ts: float | None, tool_uses: dict[str, float]) -> float | None:
+    ts = m.timestamp
+    content = m.raw.get("message", {}).get("content")
+    duration = _process_content_items(content, ts, tool_uses)
+
+    is_assistant_response = m.type == "assistant" and prev_user_ts and ts
+    if is_assistant_response:
+        duration = ts.timestamp() - prev_user_ts
+
+    return duration
+
+
+def _process_messages(messages) -> list[dict]:
+    tool_uses: dict[str, float] = {}
+    prev_user_ts = None
+    result = []
+
+    for i, m in enumerate(messages):
+        duration_seconds = _calculate_message_duration(m, prev_user_ts, tool_uses)
+
+        if m.type == "user" and m.timestamp:
+            prev_user_ts = m.timestamp.timestamp()
+
+        result.append(_build_message_dict(i, m, duration_seconds))
+
+    return result
+
+
 @router.get("/sessions/{session_id}/messages")
 def list_messages(session_id: str):
     session = SessionLogFile.from_id(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    messages = session.messages()
-    tool_uses: dict[str, float] = {}
-    prev_user_ts = None
-    result = []
-
-    for i, m in enumerate(messages):
-        ts = m.timestamp
-        content = m.raw.get("message", {}).get("content")
-
-        duration_seconds = _process_content_items(content, ts, tool_uses)
-
-        is_assistant_with_timing = m.type == "assistant" and prev_user_ts and ts
-        if is_assistant_with_timing:
-            duration_seconds = ts.timestamp() - prev_user_ts
-
-        is_user_with_timestamp = m.type == "user" and ts
-        if is_user_with_timestamp:
-            prev_user_ts = ts.timestamp()
-
-        result.append(_build_message_dict(i, m, duration_seconds))
-
-    return result
+    return _process_messages(session.messages())
 
 
 @router.get("/messages/{session_id}/{index}")
