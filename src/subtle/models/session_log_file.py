@@ -51,25 +51,32 @@ def _process_tool_result(
     return (tool_name, duration_ms)
 
 
+def _process_content_item(
+    item: dict, ts: datetime, tool_uses: dict[str, tuple[str, datetime]]
+) -> tuple[str, float] | None:
+    item_type = item.get("type")
+    if item_type == "tool_use":
+        _track_tool_use(item, ts, tool_uses)
+        return None
+    if item_type == "tool_result":
+        return _process_tool_result(item, ts, tool_uses)
+    return None
+
+
+def _iter_content_items(content) -> list[dict]:
+    if not isinstance(content, list):
+        return []
+    return [item for item in content if isinstance(item, dict)]
+
+
 def _process_message_content(
     content, ts: datetime, tool_uses: dict[str, tuple[str, datetime]]
 ) -> list[tuple[str, float]]:
-    if not isinstance(content, list):
-        return []
-
     tool_durations = []
-    for item in content:
-        if not isinstance(item, dict):
-            continue
-
-        item_type = item.get("type")
-        if item_type == "tool_use":
-            _track_tool_use(item, ts, tool_uses)
-        elif item_type == "tool_result":
-            result = _process_tool_result(item, ts, tool_uses)
-            if result:
-                tool_durations.append(result)
-
+    for item in _iter_content_items(content):
+        result = _process_content_item(item, ts, tool_uses)
+        if result:
+            tool_durations.append(result)
     return tool_durations
 
 
