@@ -1,3 +1,4 @@
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -6,6 +7,65 @@ from pathlib import Path
 import orjson
 
 from .message import Message
+
+COMMAND_NAME_PATTERN = re.compile(r"<command-name>/?(\w+)</command-name>")
+COMMAND_ARGS_PATTERN = re.compile(r"<command-args>(.*?)</command-args>")
+
+
+def _parse_command_message(text: str) -> str | None:
+    match = COMMAND_NAME_PATTERN.search(text)
+    if not match:
+        return None
+    command = "/" + match.group(1)
+    args_match = COMMAND_ARGS_PATTERN.search(text)
+    if args_match and args_match.group(1).strip():
+        command += " " + args_match.group(1).strip()
+    return command
+
+
+def _truncate_description(text: str, max_len: int = 100) -> str:
+    first_line = text.split("\n")[0].strip()
+    if len(first_line) > max_len:
+        return first_line[:max_len] + "..."
+    return first_line
+
+
+SKIP_PREFIXES = (
+    "<local-command-caveat>",
+    "<local-command-stdout>",
+    "<system-reminder>",
+)
+
+
+def _is_clear_command(text: str) -> bool:
+    return "<command-name>/clear</command-name>" in text
+
+
+def _should_skip_message(text: str) -> bool:
+    if not text:
+        return True
+    if any(text.startswith(prefix) for prefix in SKIP_PREFIXES):
+        return True
+    if _is_clear_command(text):
+        return True
+    return False
+
+
+def _extract_user_message_text(msg: Message) -> str | None:
+    message = msg.raw.get("message", {})
+    content = message.get("content", "")
+    if isinstance(content, str):
+        text = content.strip()
+        if _should_skip_message(text):
+            return None
+        return text
+    if isinstance(content, list):
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                text = item.get("text", "").strip()
+                if text and not _should_skip_message(text):
+                    return text
+    return None
 
 
 @dataclass
@@ -186,6 +246,20 @@ class SessionLogFile:
     @property
     def project_path(self) -> str:
         return decode_project_path(self.project_dir.name)
+
+    @property
+    def description(self) -> str:
+        for msg in self.messages():
+            if msg.type != "user":
+                continue
+            text = _extract_user_message_text(msg)
+            if not text:
+                continue
+            parsed = _parse_command_message(text)
+            if parsed:
+                return _truncate_description(parsed)
+            return _truncate_description(text)
+        return "—"
 
     def messages(self) -> list[Message]:
         messages = []
