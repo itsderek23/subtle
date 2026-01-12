@@ -42,12 +42,18 @@ function sessionsListApp() {
         searchResults: null,
         searchLoading: false,
         debounceTimer: null,
+        dailyUsage: [],
+        dailyUsageLoading: true,
 
         get filteredSessions() {
             if (this.searchResults === null) {
                 return this.sessions;
             }
             return this.sessions.filter(s => this.searchResults.includes(s.session_id));
+        },
+
+        get totalTokens() {
+            return this.dailyUsage.reduce((sum, d) => sum + d.tokens, 0);
         },
 
         handleSearchInput() {
@@ -89,13 +95,34 @@ function sessionsListApp() {
 
         async init() {
             try {
-                const response = await fetch('/api/sessions');
-                this.sessions = await response.json();
+                const [sessionsRes, dailyRes] = await Promise.all([
+                    fetch('/api/sessions'),
+                    fetch('/api/sessions/daily-usage')
+                ]);
+                this.sessions = await sessionsRes.json();
+                this.dailyUsage = await dailyRes.json();
             } catch (error) {
                 console.error('Failed to load sessions:', error);
             } finally {
                 this.loading = false;
+                this.dailyUsageLoading = false;
             }
+        },
+
+        getBarHeight(tokens) {
+            const maxTokens = Math.max(...this.dailyUsage.map(d => d.tokens), 1);
+            return (tokens / maxTokens) * 100;
+        },
+
+        formatChartDate(dateStr) {
+            const date = new Date(dateStr + 'T00:00:00');
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        },
+
+        shouldShowLabel(index) {
+            const maxLabels = 10;
+            const labelEvery = Math.max(1, Math.ceil(this.dailyUsage.length / maxLabels));
+            return index % labelEvery === 0;
         },
 
         goToSession(sessionId) {

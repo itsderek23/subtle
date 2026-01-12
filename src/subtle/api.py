@@ -78,6 +78,22 @@ def list_sessions():
     return result
 
 
+@router.get("/sessions/daily-usage")
+def get_daily_usage():
+    sessions = SessionLogFile.all()[:50]
+    daily_totals: dict[str, int] = {}
+
+    for s in sessions:
+        if not s.start_time:
+            continue
+        date_str = s.start_time.strftime("%Y-%m-%d")
+        total_tokens = s.total_input_tokens + s.total_output_tokens
+        daily_totals[date_str] = daily_totals.get(date_str, 0) + total_tokens
+
+    sorted_dates = sorted(daily_totals.keys())
+    return [{"date": d, "tokens": daily_totals[d]} for d in sorted_dates]
+
+
 @router.get("/sessions/search")
 def search_sessions(q: str):
     sessions = SessionLogFile.all()[:50]
