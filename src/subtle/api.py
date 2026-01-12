@@ -1,6 +1,49 @@
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import orjson
 from fastapi import APIRouter, HTTPException
 
 from subtle.models import SessionLogFile
+
+
+def _extract_searchable_text(message: dict) -> str:
+    parts = []
+    msg = message.get("message", {})
+    content = msg.get("content")
+
+    if isinstance(content, str):
+        parts.append(content)
+    elif isinstance(content, list):
+        for block in content:
+            if "thinking" in block:
+                parts.append(block["thinking"])
+            if "text" in block:
+                parts.append(block["text"])
+            if "name" in block:
+                parts.append(block["name"])
+            if "input" in block:
+                inp = block["input"]
+                parts.append(orjson.dumps(inp).decode() if isinstance(inp, dict) else str(inp))
+
+    return " ".join(parts)
+
+
+def _search_file(path: Path, query: str) -> str | None:
+    query_lower = query.lower()
+    with open(path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                message = orjson.loads(line)
+                text = _extract_searchable_text(message)
+                if query_lower in text.lower():
+                    return path.stem
+            except orjson.JSONDecodeError:
+                continue
+    return None
 
 router = APIRouter(prefix="/api")
 
@@ -28,6 +71,20 @@ def list_sessions():
     ]
 
 
+@router.get("/sessions/search")
+def search_sessions(q: str):
+    sessions = SessionLogFile.all()
+    paths = [s.path for s in sessions]
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(lambda p: _search_file(p, q), paths))
+
+    return {
+        "query": q,
+        "matching_session_ids": [r for r in results if r],
+    }
+
+
 @router.get("/sessions/{session_id}")
 def get_session(session_id: str):
     session = SessionLogFile.from_id(session_id)
@@ -38,6 +95,33 @@ def get_session(session_id: str):
         "duration_seconds": session.duration.total_seconds() if session.duration else None,
         "execution_time_seconds": session.execution_time.total_seconds(),
         "error_count": session.error_count,
+    }
+
+
+@router.get("/sessions/{session_id}/messages/search")
+def search_messages(session_id: str, q: str):
+    session = SessionLogFile.from_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    matching_indices = []
+    query_lower = q.lower()
+    with open(session.path, "r") as f:
+        for i, line in enumerate(f):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                message = orjson.loads(line)
+                text = _extract_searchable_text(message)
+                if query_lower in text.lower():
+                    matching_indices.append(i)
+            except orjson.JSONDecodeError:
+                continue
+
+    return {
+        "query": q,
+        "matching_indices": matching_indices,
     }
 
 

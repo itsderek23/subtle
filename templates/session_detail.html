@@ -73,6 +73,33 @@
         </div>
     </div>
 
+    <!-- Search input -->
+    <div class="relative mb-4 w-fit">
+        <input
+            type="text"
+            x-model="searchQuery"
+            @input="handleSearchInput()"
+            placeholder="Search messages..."
+            class="w-48 sm:w-56 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2 pl-9 font-mono text-xs text-white placeholder-white/30 outline-none transition-colors focus:border-amber-500/50 focus:bg-white/[0.04]"
+        />
+        <svg x-show="!searchLoading" class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <svg x-show="searchLoading" class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <button
+            x-show="searchQuery"
+            @click="clearSearch()"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+        >
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+
     <div class="bg-white/[0.02] rounded-lg border border-white/10 overflow-hidden">
         <table class="w-full text-xs">
             <thead>
@@ -101,7 +128,14 @@
                         </td>
                     </tr>
                 </template>
-                <template x-for="message in messages" :key="message.index">
+                <template x-if="!loading && messages.length > 0 && filteredMessages.length === 0">
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-white/40">
+                            No messages match your search
+                        </td>
+                    </tr>
+                </template>
+                <template x-for="message in filteredMessages" :key="message.index">
                     <tr class="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
                         :class="{'bg-white/[0.04]': selectedIndex === message.index}"
                         @click="selectMessage(message.index)">
