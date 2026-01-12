@@ -31,6 +31,45 @@
         </button>
     </div>
 
+    <!-- Daily Usage Chart -->
+    <div class="bg-white/[0.02] rounded-lg border border-white/10 p-6 mb-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-mono text-xs uppercase tracking-wider text-white/60">
+                Daily Usage <span class="text-white/30" x-text="'(' + dailyUsage.length + 'd)'"></span>
+            </h3>
+            <span class="font-mono text-xs text-amber-400" x-text="formatTokens(totalTokens)"></span>
+        </div>
+        <div class="flex items-end gap-1 h-32" x-show="!dailyUsageLoading && dailyUsage.length > 0">
+            <template x-for="(day, index) in dailyUsage" :key="day.date">
+                <div class="group relative flex-1 flex flex-col justify-end min-w-[4px] h-full">
+                    <div
+                        class="w-full bg-amber-500/80 rounded-t transition-all duration-300"
+                        :style="'height: ' + getBarHeight(day.tokens) + '%; min-height: ' + (day.tokens > 0 ? '2px' : '0')"
+                    ></div>
+                    <span
+                        x-show="shouldShowLabel(index)"
+                        class="absolute -bottom-5 left-1/2 -translate-x-1/2 font-mono text-[8px] text-white/30 whitespace-nowrap"
+                        x-text="formatChartDate(day.date)"
+                    ></span>
+                    <!-- Tooltip -->
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
+                        <div class="rounded bg-black/90 px-2 py-1.5 text-[10px] font-mono whitespace-nowrap border border-white/10">
+                            <div class="text-white/60" x-text="formatChartDate(day.date)"></div>
+                            <div class="text-amber-400" x-text="formatTokens(day.tokens) + ' tokens'"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        <div x-show="dailyUsageLoading" class="h-32 flex items-center justify-center">
+            <span class="font-mono text-xs text-white/40">Loading chart...</span>
+        </div>
+        <div x-show="!dailyUsageLoading && dailyUsage.length === 0" class="h-32 flex items-center justify-center">
+            <span class="font-mono text-xs text-white/40">No usage data</span>
+        </div>
+        <div x-show="!dailyUsageLoading && dailyUsage.length > 0" class="h-px bg-white/10 mt-1"></div>
+    </div>
+
     <div class="bg-white/[0.02] rounded-lg border border-white/10 overflow-hidden">
         <table class="w-full text-xs">
             <thead>
@@ -72,16 +111,12 @@
                         @click="goToSession(session.session_id)">
                         <td class="px-4 py-3 text-white/70 whitespace-nowrap" x-text="session.project_name"></td>
                         <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatTime(session.start_time)"></td>
-                        <td class="px-4 py-3 text-white/50" x-text="session.description"></td>
+                        <td class="px-4 py-3 text-white/70" x-text="session.description"></td>
                         <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatDuration(session.duration_seconds)"></td>
-                        <td class="px-4 py-3 text-cyan-400 whitespace-nowrap" x-text="formatDuration(session.agent_time_seconds)"></td>
-                        <td class="px-4 py-3 text-amber-400 whitespace-nowrap" x-text="formatDuration(session.tool_time_seconds)"></td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap" x-html="formatLoc(session.git_loc)"></td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap">
-                            <span class="text-amber-400" x-text="formatTokens(session.input_tokens)"></span>
-                            <span class="text-white/30">/</span>
-                            <span class="text-white/50" x-text="formatTokens(session.output_tokens)"></span>
-                        </td>
+                        <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatDuration(session.agent_time_seconds)"></td>
+                        <td class="px-4 py-3 text-white/50 whitespace-nowrap" x-text="formatDuration(session.tool_time_seconds)"></td>
+                        <td class="px-4 py-3 text-white/50 text-right whitespace-nowrap" x-html="formatLoc(session.git_loc)"></td>
+                        <td class="px-4 py-3 text-white/50 text-right whitespace-nowrap" x-text="formatTokens(session.input_tokens + session.output_tokens)"></td>
                     </tr>
                 </template>
             </tbody>

@@ -42,12 +42,19 @@ function sessionsListApp() {
         searchResults: null,
         searchLoading: false,
         debounceTimer: null,
+        dailyUsage: [],
+        dailyUsageLoading: true,
 
         get filteredSessions() {
             if (this.searchResults === null) {
                 return this.sessions;
             }
             return this.sessions.filter(s => this.searchResults.includes(s.session_id));
+        },
+
+        get totalTokens() {
+            if (!this.dailyUsage || !Array.isArray(this.dailyUsage)) return 0;
+            return this.dailyUsage.reduce((sum, d) => sum + d.tokens, 0);
         },
 
         handleSearchInput() {
@@ -89,13 +96,38 @@ function sessionsListApp() {
 
         async init() {
             try {
-                const response = await fetch('/api/sessions');
-                this.sessions = await response.json();
+                const [sessionsRes, dailyRes] = await Promise.all([
+                    fetch('/api/sessions'),
+                    fetch('/api/sessions/daily-usage')
+                ]);
+                this.sessions = await sessionsRes.json();
+                if (dailyRes.ok) {
+                    const dailyData = await dailyRes.json();
+                    this.dailyUsage = Array.isArray(dailyData) ? dailyData : [];
+                }
             } catch (error) {
                 console.error('Failed to load sessions:', error);
             } finally {
                 this.loading = false;
+                this.dailyUsageLoading = false;
             }
+        },
+
+        getBarHeight(tokens) {
+            if (!this.dailyUsage || this.dailyUsage.length === 0) return 0;
+            const maxTokens = Math.max(...this.dailyUsage.map(d => d.tokens), 1);
+            return (tokens / maxTokens) * 100;
+        },
+
+        formatChartDate(dateStr) {
+            const date = new Date(dateStr + 'T00:00:00');
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        },
+
+        shouldShowLabel(index) {
+            const maxLabels = 10;
+            const labelEvery = Math.max(1, Math.ceil(this.dailyUsage.length / maxLabels));
+            return index % labelEvery === 0;
         },
 
         goToSession(sessionId) {
@@ -118,11 +150,11 @@ function sessionsListApp() {
         formatTokens,
 
         formatLoc(loc) {
-            if (!loc) return '<span class="text-white/30">–</span>';
+            if (!loc) return '–';
             const added = loc.added || 0;
             const removed = loc.removed || 0;
-            if (added === 0 && removed === 0) return '<span class="text-white/30">–</span>';
-            return `<span class="text-green-400">+${added}</span><span class="text-white/30">/</span><span class="text-red-400">-${removed}</span>`;
+            if (added === 0 && removed === 0) return '–';
+            return `+${added}/-${removed}`;
         }
     };
 }
