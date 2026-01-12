@@ -63,6 +63,7 @@ def list_sessions():
             "session_id": s.session_id,
             "project_name": s.project_name,
             "project_path": s.project_path,
+            "description": s.description,
             "start_time": s.start_time.isoformat() if s.start_time else None,
             "end_time": s.end_time.isoformat() if s.end_time else None,
             "duration_seconds": s.duration.total_seconds() if s.duration else None,
@@ -71,8 +72,6 @@ def list_sessions():
             "input_tokens": s.total_input_tokens,
             "output_tokens": s.total_output_tokens,
             "commit_count": s.commit_count,
-            "error_count": s.error_count,
-            "tool_loc": s.tool_loc,
             "git_loc": s.git_loc,
         })
     return result
