@@ -34,6 +34,17 @@ function formatTokens(count) {
     return count.toString();
 }
 
+function formatHours(hours) {
+    if (hours === null || hours === undefined) return '0';
+    return hours.toFixed(1);
+}
+
+function formatPercentChange(percent) {
+    if (percent === null || percent === undefined) return '';
+    const sign = percent >= 0 ? '+' : '';
+    return ` ${sign}${Math.round(percent)}%`;
+}
+
 function sessionsListApp() {
     return {
         sessions: [],
@@ -42,8 +53,9 @@ function sessionsListApp() {
         searchResults: null,
         searchLoading: false,
         debounceTimer: null,
-        dailyUsage: [],
+        dailyUsage: null,
         dailyUsageLoading: true,
+        chart: null,
 
         get filteredSessions() {
             if (this.searchResults === null) {
@@ -52,9 +64,21 @@ function sessionsListApp() {
             return this.sessions.filter(s => this.searchResults.includes(s.session_id));
         },
 
-        get totalTokens() {
-            if (!this.dailyUsage || !Array.isArray(this.dailyUsage)) return 0;
-            return this.dailyUsage.reduce((sum, d) => sum + d.tokens, 0);
+        get totalHours() {
+            if (!this.dailyUsage || !this.dailyUsage.current_week) return 0;
+            const lastDay = this.dailyUsage.current_week[this.dailyUsage.current_week.length - 1];
+            if (!lastDay) return 0;
+            return lastDay.cumulative_total || 0;
+        },
+
+        get percentChange() {
+            if (!this.dailyUsage || !this.dailyUsage.current_week || !this.dailyUsage.previous_week) return null;
+            const currentTotal = this.totalHours;
+            const prevLastDay = this.dailyUsage.previous_week[this.dailyUsage.previous_week.length - 1];
+            if (!prevLastDay) return null;
+            const prevTotal = prevLastDay.cumulative_total || 0;
+            if (prevTotal === 0) return currentTotal > 0 ? 100 : null;
+            return ((currentTotal - prevTotal) / prevTotal) * 100;
         },
 
         handleSearchInput() {
@@ -102,32 +126,101 @@ function sessionsListApp() {
                 ]);
                 this.sessions = await sessionsRes.json();
                 if (dailyRes.ok) {
-                    const dailyData = await dailyRes.json();
-                    this.dailyUsage = Array.isArray(dailyData) ? dailyData : [];
+                    this.dailyUsage = await dailyRes.json();
                 }
             } catch (error) {
                 console.error('Failed to load sessions:', error);
             } finally {
                 this.loading = false;
                 this.dailyUsageLoading = false;
+                this.$nextTick(() => this.initChart());
             }
         },
 
-        getBarHeight(tokens) {
-            if (!this.dailyUsage || this.dailyUsage.length === 0) return 0;
-            const maxTokens = Math.max(...this.dailyUsage.map(d => d.tokens), 1);
-            return (tokens / maxTokens) * 100;
-        },
+        initChart() {
+            if (!this.dailyUsage || !this.dailyUsage.current_week) return;
 
-        formatChartDate(dateStr) {
-            const date = new Date(dateStr + 'T00:00:00');
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        },
+            const ctx = this.$refs.chartCanvas;
+            if (!ctx) return;
 
-        shouldShowLabel(index) {
-            const maxLabels = 10;
-            const labelEvery = Math.max(1, Math.ceil(this.dailyUsage.length / maxLabels));
-            return index % labelEvery === 0;
+            const currentWeek = this.dailyUsage.current_week;
+            const previousWeek = this.dailyUsage.previous_week;
+
+            const labels = currentWeek.map(d => d.weekday);
+            const currentData = currentWeek.map(d => d.cumulative_total);
+            const prevWeekData = previousWeek.map(d => d.cumulative_total);
+
+            this.chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Current 7D',
+                            data: currentData,
+                            backgroundColor: '#d97706',
+                            borderRadius: 2,
+                            barPercentage: 0.95,
+                            categoryPercentage: 0.95,
+                            order: 2,
+                        },
+                        {
+                            label: 'Previous 7D',
+                            data: prevWeekData,
+                            type: 'line',
+                            borderColor: '#6b7280',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#6b7280',
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0,
+                            order: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            titleColor: 'rgba(255, 255, 255, 0.6)',
+                            bodyColor: 'rgba(255, 255, 255, 0.8)',
+                            titleFont: { family: 'Geist Mono, monospace', size: 10 },
+                            bodyFont: { family: 'Geist Mono, monospace', size: 10 },
+                            padding: 10,
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y || 0;
+                                    return `${context.dataset.label}: ${value.toFixed(1)} hrs`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.3)',
+                                font: { size: 9, family: 'Geist Mono, monospace' }
+                            }
+                        },
+                        y: {
+                            display: false,
+                        }
+                    }
+                }
+            });
         },
 
         goToSession(sessionId) {
@@ -148,6 +241,8 @@ function sessionsListApp() {
 
         formatDuration,
         formatTokens,
+        formatHours,
+        formatPercentChange,
 
         formatLoc(loc) {
             if (!loc) return '–';

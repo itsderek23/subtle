@@ -84,20 +84,65 @@ def list_sessions(days: int = 7):
     return result
 
 
-@router.get("/sessions/daily-usage")
-def get_daily_usage(days: int = 7):
-    sessions = filter_sessions_by_days(SessionLogFile.all(), days)
-    daily_totals: dict[str, int] = {}
+def _get_week_dates(start_date: datetime, days: int = 7) -> list[datetime]:
+    return [start_date - timedelta(days=i) for i in range(days - 1, -1, -1)]
 
+
+def _aggregate_daily_time(sessions: list[SessionLogFile]) -> dict[str, dict]:
+    daily: dict[str, dict] = {}
     for s in sessions:
         if not s.start_time:
             continue
-        date_str = s.start_time.strftime("%Y-%m-%d")
-        total_tokens = s.total_input_tokens + s.total_output_tokens
-        daily_totals[date_str] = daily_totals.get(date_str, 0) + total_tokens
+        local_time = s.start_time.replace(tzinfo=None)
+        date_str = local_time.strftime("%Y-%m-%d")
+        if date_str not in daily:
+            daily[date_str] = {"ai_seconds": 0, "tool_seconds": 0}
+        breakdown = s.execution_breakdown
+        daily[date_str]["ai_seconds"] += breakdown.agent_ms / 1000
+        daily[date_str]["tool_seconds"] += breakdown.tool_ms / 1000
+    return daily
 
-    sorted_dates = sorted(daily_totals.keys())
-    return [{"date": d, "tokens": daily_totals[d]} for d in sorted_dates]
+
+def _build_week_data(dates: list[datetime], daily: dict[str, dict]) -> list[dict]:
+    result = []
+    cumulative = 0.0
+    for d in dates:
+        date_str = d.strftime("%Y-%m-%d")
+        weekday = d.strftime("%a")
+        day_data = daily.get(date_str, {"ai_seconds": 0, "tool_seconds": 0})
+        hours = (day_data["ai_seconds"] + day_data["tool_seconds"]) / 3600
+        cumulative += hours
+        result.append({
+            "weekday": weekday,
+            "date": date_str,
+            "cumulative_total": round(cumulative, 2),
+        })
+    return result
+
+
+@router.get("/sessions/daily-usage")
+def get_daily_usage(days: int = 7):
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    current_week_dates = _get_week_dates(today, days)
+    previous_week_start = today - timedelta(days=days)
+    previous_week_dates = _get_week_dates(previous_week_start, days)
+
+    all_sessions = SessionLogFile.all()
+    cutoff = previous_week_dates[0]
+    sessions = [
+        s for s in all_sessions
+        if s.start_time and s.start_time.replace(tzinfo=None) >= cutoff
+    ]
+
+    daily = _aggregate_daily_time(sessions)
+
+    current_week = _build_week_data(current_week_dates, daily)
+    previous_week = _build_week_data(previous_week_dates, daily)
+
+    return {
+        "current_week": current_week,
+        "previous_week": previous_week,
+    }
 
 
 @router.get("/sessions/search")
