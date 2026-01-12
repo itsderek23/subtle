@@ -19,11 +19,80 @@
             }
         }
     </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="/static/js/app.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         body {
             background-color: #050507;
+        }
+
+        .prose {
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.6;
+        }
+        .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+        .prose h1 { font-size: 1.5em; }
+        .prose h2 { font-size: 1.25em; }
+        .prose h3 { font-size: 1.1em; }
+        .prose p {
+            margin-bottom: 1em;
+        }
+        .prose ul, .prose ol {
+            margin-left: 1.5em;
+            margin-bottom: 1em;
+        }
+        .prose li {
+            margin-bottom: 0.25em;
+        }
+        .prose ul { list-style-type: disc; }
+        .prose ol { list-style-type: decimal; }
+        .prose code {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 0.15em 0.4em;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #f59e0b;
+        }
+        .prose pre {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 1em;
+        }
+        .prose pre code {
+            background: none;
+            padding: 0;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .prose strong {
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 600;
+        }
+        .prose em {
+            font-style: italic;
+        }
+        .prose a {
+            color: #f59e0b;
+            text-decoration: underline;
+        }
+        .prose blockquote {
+            border-left: 3px solid rgba(255, 255, 255, 0.2);
+            padding-left: 1em;
+            margin-left: 0;
+            color: rgba(255, 255, 255, 0.6);
+            font-style: italic;
+        }
+        .prose hr {
+            border: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 1.5em 0;
         }
     </style>
 </head>

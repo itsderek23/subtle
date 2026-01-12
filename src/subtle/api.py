@@ -55,7 +55,7 @@ router = APIRouter(prefix="/api")
 
 @router.get("/sessions")
 def list_sessions():
-    sessions = SessionLogFile.all()
+    sessions = SessionLogFile.all()[:50]
     result = []
     for s in sessions:
         breakdown = s.execution_breakdown
@@ -80,7 +80,7 @@ def list_sessions():
 
 @router.get("/sessions/search")
 def search_sessions(q: str):
-    sessions = SessionLogFile.all()
+    sessions = SessionLogFile.all()[:50]
     paths = [s.path for s in sessions]
 
     with ThreadPoolExecutor(max_workers=8) as executor:
@@ -168,18 +168,109 @@ def _process_content_items(content, ts, tool_uses: dict[str, float]) -> float | 
     return duration_seconds
 
 
+def _extract_text_content(m) -> str:
+    message = m.raw.get("message", {})
+    content = message.get("content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                text_parts.append(item.get("text", ""))
+        return "\n\n".join(text_parts)
+    return ""
+
+
+def _extract_thinking(m) -> str | None:
+    message = m.raw.get("message", {})
+    content = message.get("content", [])
+    if not isinstance(content, list):
+        return None
+    for item in content:
+        if isinstance(item, dict) and item.get("type") == "thinking":
+            return item.get("thinking", "")
+    return None
+
+
+def _build_tool_info(item: dict) -> dict:
+    tool_info = {
+        "id": item.get("id"),
+        "name": item.get("name", ""),
+    }
+    inp = item.get("input", {})
+
+    field_mappings = [("file_path", "file_path"), ("pattern", "pattern"), ("query", "query")]
+    for src, dest in field_mappings:
+        if src in inp:
+            tool_info[dest] = inp[src]
+
+    if "command" in inp:
+        cmd = inp["command"]
+        tool_info["command"] = cmd[:100] + "..." if len(cmd) > 100 else cmd
+
+    if "old_string" in inp and "new_string" in inp:
+        tool_info["edit_summary"] = {
+            "old_lines": len(inp["old_string"].splitlines()),
+            "new_lines": len(inp["new_string"].splitlines()),
+        }
+
+    if "content" in inp and "file_path" in inp:
+        tool_info["write_lines"] = len(inp["content"].splitlines())
+
+    return tool_info
+
+
+def _extract_tool_uses(m) -> list[dict]:
+    message = m.raw.get("message", {})
+    content = message.get("content", [])
+    if not isinstance(content, list):
+        return []
+    return [
+        _build_tool_info(item)
+        for item in content
+        if isinstance(item, dict) and item.get("type") == "tool_use"
+    ]
+
+
+def _extract_tool_results(m) -> list[dict]:
+    message = m.raw.get("message", {})
+    content = message.get("content", [])
+    if not isinstance(content, list):
+        return []
+    results = []
+    for item in content:
+        if isinstance(item, dict) and item.get("type") == "tool_result":
+            result_content = item.get("content", "")
+            if isinstance(result_content, str):
+                preview = result_content[:200] + "..." if len(result_content) > 200 else result_content
+            else:
+                preview = str(result_content)[:200]
+            results.append({
+                "tool_use_id": item.get("tool_use_id"),
+                "is_error": item.get("is_error", False),
+                "preview": preview,
+            })
+    return results
+
+
 def _build_message_dict(index: int, m, duration_seconds: float | None) -> dict:
     ts = m.timestamp
     return {
         "index": index,
         "type": m.type,
         "preview": m.preview,
+        "text_content": _extract_text_content(m),
+        "thinking": _extract_thinking(m),
+        "tool_uses": _extract_tool_uses(m),
+        "tool_results": _extract_tool_results(m),
         "timestamp": ts.isoformat() if ts else None,
         "model": m.model,
         "input_tokens": m.input_tokens,
         "output_tokens": m.output_tokens,
         "duration_seconds": duration_seconds,
         "is_commit": m.is_commit,
+        "commit_info": m.commit_info,
         "edit_loc": m.edit_loc,
         "write_loc": m.write_loc,
         "git_diff_loc": m.git_diff_loc,

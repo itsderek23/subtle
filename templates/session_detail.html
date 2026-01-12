@@ -109,91 +109,117 @@
         </button>
     </div>
 
-    <div class="bg-white/[0.02] rounded-lg border border-white/10 overflow-hidden">
-        <table class="w-full text-xs">
-            <thead>
-                <tr class="border-b border-white/10 text-white/50 text-left">
-                    <th class="px-4 py-3 font-medium w-28">Type</th>
-                    <th class="px-4 py-3 font-medium">Message</th>
-                    <th class="px-4 py-3 font-medium w-24">Time</th>
-                    <th class="px-4 py-3 font-medium w-20">Model</th>
-                    <th class="px-4 py-3 font-medium w-20 text-right">Tokens</th>
-                    <th class="px-4 py-3 font-medium w-24">Duration</th>
-                    <th class="px-4 py-3 font-medium w-32">LOC</th>
-                </tr>
-            </thead>
-            <tbody>
-                <template x-if="loading">
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-white/40">
-                            Loading messages...
-                        </td>
-                    </tr>
+    <!-- CLI-Style View -->
+    <div class="font-mono text-sm">
+        <template x-if="loading">
+            <div class="text-center text-white/40 py-8">Loading conversation...</div>
+        </template>
+        <template x-if="!loading && turns.length === 0">
+            <div class="text-center text-white/40 py-8">No messages found</div>
+        </template>
+        <template x-if="!loading && turns.length > 0 && filteredTurns.length === 0">
+            <div class="text-center text-white/40 py-8">No messages match your search</div>
+        </template>
+
+        <template x-for="(turn, turnIndex) in filteredTurns" :key="turnIndex">
+            <div class="py-4 -mx-4 px-4 rounded-lg mb-2"
+                 :class="turn.type === 'user' ? 'bg-green-500/[0.04] border-l-2 border-green-500/30' : (turnIndex % 2 === 1 ? 'bg-white/[0.02]' : '')">
+                <!-- User Message -->
+                <template x-if="turn.type === 'user'">
+                    <div class="cursor-pointer hover:bg-white/[0.03] -mx-2 px-2 py-1 rounded"
+                         @click="selectTurn(turnIndex, turn.messageIndices[0])">
+                        <div class="flex items-start gap-2">
+                            <span class="text-green-400 flex-shrink-0">❯</span>
+                            <span class="text-white/90 whitespace-pre-wrap" x-text="formatUserContent(turn.content)"></span>
+                        </div>
+                    </div>
                 </template>
-                <template x-if="!loading && messages.length === 0">
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-white/40">
-                            No messages found
-                        </td>
-                    </tr>
-                </template>
-                <template x-if="!loading && messages.length > 0 && filteredMessages.length === 0">
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-white/40">
-                            No messages match your search
-                        </td>
-                    </tr>
-                </template>
-                <template x-for="message in filteredMessages" :key="message.index">
-                    <tr class="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
-                        :class="{'bg-white/[0.04]': selectedIndex === message.index}"
-                        @click="selectMessage(message.index)">
-                        <td class="px-4 py-3">
-                            <span :class="typeClass(message.type)" x-text="message.type"></span>
-                        </td>
-                        <td class="px-4 py-3 text-white/60 truncate max-w-md" x-text="message.preview || '–'"></td>
-                        <td class="px-4 py-3 text-white/40" x-text="formatTime(message.timestamp)"></td>
-                        <td class="px-4 py-3 text-white/40" x-text="formatModel(message.model)"></td>
-                        <td class="px-4 py-3 text-right text-white/40">
-                            <template x-if="message.input_tokens || message.output_tokens">
-                                <span>
-                                    <span x-text="message.input_tokens || 0"></span>
-                                    <span class="text-white/20">/</span>
-                                    <span x-text="message.output_tokens || 0"></span>
+
+                <!-- Assistant Turn -->
+                <template x-if="turn.type === 'assistant'">
+                    <div>
+                        <template x-for="(segment, segIndex) in turn.segments" :key="segIndex">
+                            <div class="mb-3">
+                                <!-- Tool call -->
+                                <template x-if="segment.type === 'tool'">
+                                    <div>
+                                        <div class="flex items-start gap-2 cursor-pointer hover:bg-white/[0.02] -mx-2 px-2 py-1 rounded"
+                                             @click="toggleToolExpand(turnIndex, segIndex)">
+                                            <span class="text-amber-400 flex-shrink-0">⏺</span>
+                                            <span class="text-white/70">
+                                                <span class="text-cyan-400" x-text="segment.tool.name"></span><span class="text-white/50">(<span x-text="getToolArgs(segment.tool)"></span>)</span>
+                                            </span>
+                                        </div>
+                                        <!-- Tool result -->
+                                        <template x-if="segment.result">
+                                            <div class="flex items-start gap-2 ml-4 mt-1">
+                                                <span class="text-white/30 flex-shrink-0">⎿</span>
+                                                <div class="text-white/50 flex-1 min-w-0">
+                                                    <template x-if="!isToolExpanded(turnIndex, segIndex)">
+                                                        <span x-text="truncateResult(segment.result.preview)" :class="{'text-red-400/70': segment.result.is_error}"></span>
+                                                    </template>
+                                                    <template x-if="isToolExpanded(turnIndex, segIndex)">
+                                                        <pre class="whitespace-pre-wrap break-words text-xs" :class="{'text-red-400/70': segment.result.is_error}" x-text="segment.result.preview"></pre>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="!segment.result">
+                                            <div class="flex items-start gap-2 ml-4 mt-1">
+                                                <span class="text-white/30 flex-shrink-0">⎿</span>
+                                                <span class="text-white/30 italic">(No content)</span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <!-- Text content -->
+                                <template x-if="segment.type === 'text'">
+                                    <div>
+                                        <div class="flex items-start gap-2">
+                                            <span class="text-amber-400 flex-shrink-0">⏺</span>
+                                            <div class="text-white/80 flex-1 min-w-0">
+                                                <template x-if="!isExpanded(turnIndex + '-' + segIndex) && needsTruncation(segment.content, 500)">
+                                                    <div>
+                                                        <div class="prose prose-sm max-w-none" x-html="renderMarkdown(truncateText(segment.content, 500))"></div>
+                                                        <button @click.stop="toggleExpand(turnIndex + '-' + segIndex)"
+                                                                class="text-white/40 hover:text-white/60 text-xs mt-1 cursor-pointer">
+                                                            … +<span x-text="Math.ceil((segment.content.length - 500) / 50)"></span> lines (click to expand)
+                                                        </button>
+                                                    </div>
+                                                </template>
+                                                <template x-if="isExpanded(turnIndex + '-' + segIndex) || !needsTruncation(segment.content, 500)">
+                                                    <div class="prose prose-sm max-w-none" x-html="renderMarkdown(segment.content)"></div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Commit info -->
+                        <template x-if="turn.hasCommit && turn.commitInfo">
+                            <div class="flex items-start gap-2 mb-3">
+                                <span class="text-amber-400 flex-shrink-0">⏺</span>
+                                <span class="text-purple-400">
+                                    Committed: <code class="text-purple-300" x-text="turn.commitInfo.hash"></code>
+                                    <span class="text-purple-300/70" x-text="turn.commitInfo.message"></span>
                                 </span>
-                            </template>
-                            <template x-if="!message.input_tokens && !message.output_tokens">
-                                <span>–</span>
-                            </template>
-                        </td>
-                        <td class="px-4 py-3 text-white/40" x-text="formatDuration(message.duration_seconds)"></td>
-                        <td class="px-4 py-3">
-                            <template x-if="message.is_commit">
-                                <span class="inline-block px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded">committed</span>
-                            </template>
-                            <template x-if="message.edit_loc">
-                                <span class="inline-block px-2 py-0.5 text-xs bg-blue-500/20 text-blue-300 rounded" x-text="'+' + message.edit_loc.added + '/-' + message.edit_loc.removed"></span>
-                            </template>
-                            <template x-if="message.write_loc">
-                                <span class="inline-block px-2 py-0.5 text-xs bg-green-500/20 text-green-300 rounded" x-text="'+' + message.write_loc + ' lines'"></span>
-                            </template>
-                            <template x-if="message.git_diff_loc">
-                                <span class="inline-block px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded" x-text="'+' + message.git_diff_loc.added + '/-' + message.git_diff_loc.removed"></span>
-                            </template>
-                            <template x-if="message.is_rejection">
-                                <span class="inline-block px-2 py-0.5 text-xs bg-red-500/20 text-red-300 rounded">rejection</span>
-                            </template>
-                            <template x-if="message.is_tool_error">
-                                <span class="inline-block px-2 py-0.5 text-xs bg-orange-500/20 text-orange-300 rounded">tool error</span>
-                            </template>
-                            <template x-if="message.is_command_failure">
-                                <span class="inline-block px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-300 rounded">cmd fail</span>
-                            </template>
-                        </td>
-                    </tr>
+                            </div>
+                        </template>
+
+                        <!-- Turn footer -->
+                        <div class="flex items-center gap-2 text-white/30 text-xs mt-2">
+                            <span class="text-white/20">✻</span>
+                            <span x-text="formatTokens(turn.totalInputTokens + turn.totalOutputTokens) + ' tokens'"></span>
+                            <span>·</span>
+                            <span x-text="formatDuration(turn.totalDuration)"></span>
+                        </div>
+                    </div>
                 </template>
-            </tbody>
-        </table>
+            </div>
+        </template>
     </div>
 
     <!-- Side Panel -->
