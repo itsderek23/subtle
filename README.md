@@ -4,6 +4,14 @@ Explore and analyze your Claude Code logs with ease.
 
 ![screenshot](docs/screenshot.png)
 
+## Privacy
+
+Subtle runs entirely on your local machine:
+
+* All data processing happens locally
+* No telemetry
+* Your conversations never leave your computer
+
 ## Setup
 
 ```bash
@@ -39,12 +47,4 @@ CLI arguments take precedence over environment variables.
 ```bash
 uv run pytest
 ```
-
-## Privacy
-
-Subtle runs entirely on your local machine:
-
-* All data processing happens locally
-* No telemetry
-* Your conversations never leave your computer
 
