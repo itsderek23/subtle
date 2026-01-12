@@ -119,6 +119,24 @@ def decode_project_path(encoded: str) -> str:
     return encoded.replace("-", "/")
 
 
+def _is_valid_dir(path: Path) -> bool:
+    return path.is_dir() and not path.name.startswith(".")
+
+
+def _iter_project_dirs():
+    if not PROJECTS_DIR.exists():
+        return
+    for project_dir in PROJECTS_DIR.iterdir():
+        if _is_valid_dir(project_dir):
+            yield project_dir
+
+
+def _iter_log_files(project_dir: Path):
+    for log_file in project_dir.glob("*.jsonl"):
+        if not log_file.name.startswith("."):
+            yield log_file
+
+
 @dataclass
 class SessionLogFile:
     path: Path
@@ -126,30 +144,17 @@ class SessionLogFile:
 
     @classmethod
     def all(cls) -> list["SessionLogFile"]:
-        sessions = []
-        if not PROJECTS_DIR.exists():
-            return sessions
-        for project_dir in PROJECTS_DIR.iterdir():
-            if not project_dir.is_dir():
-                continue
-            if project_dir.name.startswith("."):
-                continue
-            for log_file in project_dir.glob("*.jsonl"):
-                if log_file.name.startswith("."):
-                    continue
-                sessions.append(cls(path=log_file, project_dir=project_dir))
+        sessions = [
+            cls(path=log_file, project_dir=project_dir)
+            for project_dir in _iter_project_dirs()
+            for log_file in _iter_log_files(project_dir)
+        ]
         sessions.sort(key=lambda s: s.path.stat().st_mtime, reverse=True)
         return sessions
 
     @classmethod
     def from_id(cls, session_id: str) -> "SessionLogFile | None":
-        if not PROJECTS_DIR.exists():
-            return None
-        for project_dir in PROJECTS_DIR.iterdir():
-            if not project_dir.is_dir():
-                continue
-            if project_dir.name.startswith("."):
-                continue
+        for project_dir in _iter_project_dirs():
             log_file = project_dir / f"{session_id}.jsonl"
             if log_file.exists():
                 return cls(path=log_file, project_dir=project_dir)
