@@ -51,20 +51,32 @@ def _should_skip_message(text: str) -> bool:
     return False
 
 
+def _extract_text_from_string_content(content: str) -> str | None:
+    text = content.strip()
+    if _should_skip_message(text):
+        return None
+    return text
+
+
+def _extract_text_from_list_content(content: list) -> str | None:
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") != "text":
+            continue
+        text = item.get("text", "").strip()
+        if text and not _should_skip_message(text):
+            return text
+    return None
+
+
 def _extract_user_message_text(msg: Message) -> str | None:
     message = msg.raw.get("message", {})
     content = message.get("content", "")
     if isinstance(content, str):
-        text = content.strip()
-        if _should_skip_message(text):
-            return None
-        return text
+        return _extract_text_from_string_content(content)
     if isinstance(content, list):
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text":
-                text = item.get("text", "").strip()
-                if text and not _should_skip_message(text):
-                    return text
+        return _extract_text_from_list_content(content)
     return None
 
 
