@@ -11,58 +11,70 @@
         </h2>
     </div>
 
-    <div class="mb-6 grid grid-cols-8 gap-4" x-show="!loading">
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">Duration</div>
-            <div class="text-2xl text-white/70" x-text="formatDuration(summary.durationSeconds)"></div>
+    <div class="mb-6 grid grid-cols-6 grid-rows-[auto_auto] gap-4" x-show="!loading">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 col-span-2 row-span-2">
+            <div class="text-white/40 text-xs uppercase mb-3">Time Breakdown</div>
+            <div class="mb-4">
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-white/40">Total</span>
+                    <span class="text-white/70" x-text="formatDuration(summary.durationSeconds)"></span>
+                </div>
+                <div class="h-2 bg-white/10 rounded-full">
+                    <div class="h-2 bg-white/70 rounded-full" :style="'width: ' + getBarWidth(summary.durationSeconds) + '%'"></div>
+                </div>
+            </div>
+            <div class="mb-4">
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-white/40">AI</span>
+                    <span class="text-cyan-400" x-text="formatDuration(summary.agentTimeSeconds)"></span>
+                </div>
+                <div class="h-2 bg-white/10 rounded-full">
+                    <div class="h-2 bg-cyan-500 rounded-full" :style="'width: ' + getBarWidth(summary.agentTimeSeconds) + '%'"></div>
+                </div>
+            </div>
+            <div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-white/40">Tools</span>
+                    <span class="text-amber-400" x-text="formatDuration(summary.toolTimeSeconds)"></span>
+                </div>
+                <div class="h-2 bg-white/10 rounded-full">
+                    <div class="h-2 bg-amber-500 rounded-full" :style="'width: ' + getBarWidth(summary.toolTimeSeconds) + '%'"></div>
+                </div>
+            </div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">AI Time</div>
-            <div class="text-2xl text-cyan-400" x-text="formatDuration(summary.agentTimeSeconds)"></div>
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
+            <div class="text-white/40 text-xs uppercase mb-1">Messages</div>
+            <div class="text-2xl text-white/70" x-text="messages.length"></div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">Tools Time</div>
-            <div class="text-2xl text-amber-400" x-text="formatDuration(summary.toolTimeSeconds)"></div>
-        </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">Errors</div>
-            <div class="text-2xl" :class="summary.errorCount ? 'text-red-400' : 'text-white/30'" x-text="summary.errorCount || '–'"></div>
-        </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">Commits</div>
-            <div class="text-2xl text-purple-400" x-text="summary.commits"></div>
-        </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
             <div class="text-white/40 text-xs uppercase mb-1">Tool LOC</div>
-            <div class="text-lg">
+            <div class="text-2xl">
                 <span class="text-green-400" x-text="'+' + summary.toolLoc.added"></span>
                 <span class="text-white/30">/</span>
                 <span class="text-red-400" x-text="'-' + summary.toolLoc.removed"></span>
             </div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
             <div class="text-white/40 text-xs uppercase mb-1">Git LOC</div>
-            <div class="text-lg" x-show="summary.gitLoc.found">
+            <div class="text-2xl" x-show="summary.gitLoc.found">
                 <span class="text-green-400" x-text="'+' + summary.gitLoc.added"></span>
                 <span class="text-white/30">/</span>
                 <span class="text-red-400" x-text="'-' + summary.gitLoc.removed"></span>
             </div>
-            <div class="text-lg text-white/30" x-show="!summary.gitLoc.found">–</div>
+            <div class="text-2xl text-white/30" x-show="!summary.gitLoc.found">–</div>
         </div>
-        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4">
-            <div class="text-white/40 text-xs uppercase mb-1">Messages</div>
-            <div class="text-2xl text-white/70" x-text="messages.length"></div>
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 self-start">
+            <div class="text-white/40 text-xs uppercase mb-1">Commits</div>
+            <div class="text-2xl text-purple-400" x-text="summary.commits"></div>
         </div>
-    </div>
-
-    <!-- Session Timeline -->
-    <div class="mb-6 bg-white/[0.02] rounded-lg border border-white/10 p-4" x-show="!loading">
-        <h3 class="text-white/40 text-xs uppercase mb-3">Session Timeline</h3>
-        <div id="timeline-container" class="relative h-[30px]"></div>
-        <div class="flex justify-center gap-6 mt-3 text-xs text-white/40">
-            <span><span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>User</span>
-            <span><span class="inline-block w-2 h-2 rounded-full bg-cyan-500 mr-1"></span>AI</span>
-            <span><span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1"></span>Tools</span>
+        <div class="bg-white/[0.02] rounded-lg border border-white/10 p-4 col-span-4">
+            <h3 class="text-white/40 text-xs uppercase mb-3">Session Timeline</h3>
+            <div id="timeline-container" class="relative h-[30px]"></div>
+            <div class="flex justify-center gap-6 mt-3 text-xs text-white/40">
+                <span><span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>User</span>
+                <span><span class="inline-block w-2 h-2 rounded-full bg-cyan-500 mr-1"></span>AI</span>
+                <span><span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1"></span>Tools</span>
+            </div>
         </div>
     </div>
 

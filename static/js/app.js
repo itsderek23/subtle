@@ -730,6 +730,16 @@ function sessionDetailApp(sessionId) {
             return model.slice(0, 10);
         },
 
-        formatDuration
+        formatDuration,
+
+        getBarWidth(value) {
+            const max = Math.max(
+                this.summary.durationSeconds || 0,
+                this.summary.agentTimeSeconds || 0,
+                this.summary.toolTimeSeconds || 0
+            );
+            if (max === 0) return 0;
+            return ((value || 0) / max) * 100;
+        }
     };
 }
