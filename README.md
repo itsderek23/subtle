@@ -24,7 +24,6 @@ Specify a port via command line:
 
 ```bash
 uv run python -m subtle --port 3000
-uv run python -m subtle -p 3000
 ```
 
 Or via environment variable:
@@ -40,3 +39,12 @@ CLI arguments take precedence over environment variables.
 ```bash
 uv run pytest
 ```
+
+## Privacy
+
+Subtle runs entirely on your local machine:
+
+* All data processing happens locally
+* No telemetry
+* Your conversations never leave your computer
+
