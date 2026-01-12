@@ -29,20 +29,25 @@ def _extract_searchable_text(message: dict) -> str:
     return " ".join(parts)
 
 
-def _search_file(path: Path, query: str) -> str | None:
-    query_lower = query.lower()
+def _iter_messages_with_text(path: Path):
     with open(path, "r") as f:
-        for line in f:
+        for i, line in enumerate(f):
             line = line.strip()
             if not line:
                 continue
             try:
                 message = orjson.loads(line)
                 text = _extract_searchable_text(message)
-                if query_lower in text.lower():
-                    return path.stem
+                yield i, text
             except orjson.JSONDecodeError:
                 continue
+
+
+def _search_file(path: Path, query: str) -> str | None:
+    query_lower = query.lower()
+    for _, text in _iter_messages_with_text(path):
+        if query_lower in text.lower():
+            return path.stem
     return None
 
 router = APIRouter(prefix="/api")
@@ -109,20 +114,11 @@ def search_messages(session_id: str, q: str):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    matching_indices = []
     query_lower = q.lower()
-    with open(session.path, "r") as f:
-        for i, line in enumerate(f):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                message = orjson.loads(line)
-                text = _extract_searchable_text(message)
-                if query_lower in text.lower():
-                    matching_indices.append(i)
-            except orjson.JSONDecodeError:
-                continue
+    matching_indices = [
+        i for i, text in _iter_messages_with_text(session.path)
+        if query_lower in text.lower()
+    ]
 
     return {
         "query": q,
