@@ -27,6 +27,54 @@ function sessionsListApp() {
     return {
         sessions: [],
         loading: true,
+        searchQuery: '',
+        searchResults: null,
+        searchLoading: false,
+        debounceTimer: null,
+
+        get filteredSessions() {
+            if (this.searchResults === null) {
+                return this.sessions;
+            }
+            return this.sessions.filter(s => this.searchResults.includes(s.session_id));
+        },
+
+        handleSearchInput() {
+            if (this.debounceTimer) {
+                clearTimeout(this.debounceTimer);
+            }
+
+            if (!this.searchQuery.trim()) {
+                this.searchResults = null;
+                this.searchLoading = false;
+                return;
+            }
+
+            this.searchLoading = true;
+            this.debounceTimer = setTimeout(() => this.performSearch(), 300);
+        },
+
+        async performSearch() {
+            try {
+                const response = await fetch(`/api/sessions/search?q=${encodeURIComponent(this.searchQuery)}`);
+                const data = await response.json();
+                this.searchResults = data.matching_session_ids;
+            } catch (error) {
+                console.error('Search failed:', error);
+                this.searchResults = [];
+            } finally {
+                this.searchLoading = false;
+            }
+        },
+
+        clearSearch() {
+            this.searchQuery = '';
+            this.searchResults = null;
+            this.searchLoading = false;
+            if (this.debounceTimer) {
+                clearTimeout(this.debounceTimer);
+            }
+        },
 
         async init() {
             try {
@@ -125,6 +173,10 @@ function sessionDetailApp(sessionId) {
         panelOpen: false,
         panelLoading: false,
         rawMessage: null,
+        searchQuery: '',
+        searchResults: null,
+        searchLoading: false,
+        debounceTimer: null,
         summary: {
             durationSeconds: null,
             agentTimeSeconds: null,
@@ -133,6 +185,50 @@ function sessionDetailApp(sessionId) {
             commits: 0,
             toolLoc: { added: 0, removed: 0 },
             gitLoc: { added: 0, removed: 0, found: false }
+        },
+
+        get filteredMessages() {
+            if (this.searchResults === null) {
+                return this.messages;
+            }
+            return this.messages.filter(m => this.searchResults.includes(m.index));
+        },
+
+        handleSearchInput() {
+            if (this.debounceTimer) {
+                clearTimeout(this.debounceTimer);
+            }
+
+            if (!this.searchQuery.trim()) {
+                this.searchResults = null;
+                this.searchLoading = false;
+                return;
+            }
+
+            this.searchLoading = true;
+            this.debounceTimer = setTimeout(() => this.performSearch(), 300);
+        },
+
+        async performSearch() {
+            try {
+                const response = await fetch(`/api/sessions/${this.sessionId}/messages/search?q=${encodeURIComponent(this.searchQuery)}`);
+                const data = await response.json();
+                this.searchResults = data.matching_indices;
+            } catch (error) {
+                console.error('Search failed:', error);
+                this.searchResults = [];
+            } finally {
+                this.searchLoading = false;
+            }
+        },
+
+        clearSearch() {
+            this.searchQuery = '';
+            this.searchResults = null;
+            this.searchLoading = false;
+            if (this.debounceTimer) {
+                clearTimeout(this.debounceTimer);
+            }
         },
 
         async init() {
@@ -217,18 +313,19 @@ function sessionDetailApp(sessionId) {
 
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
                 event.preventDefault();
-                const currentIdx = this.messages.findIndex(m => m.index === this.selectedIndex);
+                const filtered = this.filteredMessages;
+                const currentIdx = filtered.findIndex(m => m.index === this.selectedIndex);
                 if (currentIdx === -1) return;
 
                 let newIdx;
                 if (event.key === 'ArrowUp') {
                     newIdx = currentIdx > 0 ? currentIdx - 1 : currentIdx;
                 } else {
-                    newIdx = currentIdx < this.messages.length - 1 ? currentIdx + 1 : currentIdx;
+                    newIdx = currentIdx < filtered.length - 1 ? currentIdx + 1 : currentIdx;
                 }
 
                 if (newIdx !== currentIdx) {
-                    this.selectMessage(this.messages[newIdx].index);
+                    this.selectMessage(filtered[newIdx].index);
                 }
             }
         },
